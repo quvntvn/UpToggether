@@ -2,7 +2,8 @@ import * as Notifications from "expo-notifications";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -10,6 +11,7 @@ Notifications.setNotificationHandler({
 
 export async function requestPermissions() {
   const { status } = await Notifications.requestPermissionsAsync();
+
   if (status !== "granted") {
     throw new Error("Notification permission not granted");
   }
@@ -23,7 +25,7 @@ export async function scheduleAlarm(date: Date) {
       sound: true,
     },
     trigger: {
-      type: "date",
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
       date,
     },
   });

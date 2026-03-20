@@ -1,10 +1,42 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { requestPermissions, scheduleAlarm } from "./services/alarm";
 
 export default function SetAlarm() {
   const [time, setTime] = useState(new Date());
+
+  const handleSaveAlarm = async () => {
+    try {
+      const now = new Date();
+      const alarmDate = new Date();
+
+      alarmDate.setHours(time.getHours());
+      alarmDate.setMinutes(time.getMinutes());
+      alarmDate.setSeconds(0);
+      alarmDate.setMilliseconds(0);
+
+      if (alarmDate <= now) {
+        alarmDate.setDate(alarmDate.getDate() + 1);
+      }
+
+      await requestPermissions();
+      await scheduleAlarm(alarmDate);
+
+      Alert.alert(
+        "Alarm scheduled",
+        `Alarm set for ${String(alarmDate.getHours()).padStart(2, "0")}:${String(
+          alarmDate.getMinutes(),
+        ).padStart(2, "0")}`,
+      );
+    } catch (e) {
+      console.error(e);
+      Alert.alert(
+        "Error",
+        "Permission needed for alarms or scheduling failed.",
+      );
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -20,24 +52,12 @@ export default function SetAlarm() {
         }}
       />
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={handleSaveAlarm}>
         <Text style={styles.buttonText}>Save Alarm</Text>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={async () => {
-            try {
-              await requestPermissions();
-              await scheduleAlarm(time);
-              alert("Alarm scheduled!");
-            } catch (e) {
-              alert("Permission needed for alarms");
-            }
-          }}
-        ></TouchableOpacity>
       </TouchableOpacity>
 
       <Text style={styles.timePreview}>
-        Alarm set for {time.getHours()}:
+        Alarm set for {String(time.getHours()).padStart(2, "0")}:
         {String(time.getMinutes()).padStart(2, "0")}
       </Text>
     </View>
