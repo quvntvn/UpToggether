@@ -30,6 +30,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="set-alarm" options={{ title: 'Set Alarm' }} />
         <Stack.Screen name="friends" options={{ title: 'Friends' }} />
+        <Stack.Screen name="wake" options={{ title: 'Wake Up', presentation: 'fullScreenModal' }} />
         <Stack.Screen name="result" options={{ title: 'Wake Result' }} />
       </Stack>
       <StatusBar style="light" />

@@ -53,11 +53,29 @@ export default function HomeScreen() {
           <Text style={styles.primaryButtonText}>Set Alarm</Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={() => router.push('/friends')}>
-          <Text style={styles.secondaryButtonText}>Friends</Text>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() =>
+            router.push({
+              pathname: '/wake',
+              params: { startTime: String(Date.now()) },
+            })
+          }>
+          <Text style={styles.secondaryButtonText}>Test Wake</Text>
         </Pressable>
 
-        <Pressable style={styles.linkButton} onPress={() => router.push('/result')}>
+        <Pressable style={styles.tertiaryButton} onPress={() => router.push('/friends')}>
+          <Text style={styles.tertiaryButtonText}>Friends</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.linkButton}
+          onPress={() =>
+            router.push({
+              pathname: '/result',
+              params: { reactionSeconds: '12' },
+            })
+          }>
           <Text style={styles.linkButtonText}>Preview wake result</Text>
         </Pressable>
       </View>
@@ -139,8 +157,22 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingVertical: 18,
     alignItems: 'center',
+    marginBottom: 12,
   },
   secondaryButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  tertiaryButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  tertiaryButtonText: {
     color: colors.text,
     fontSize: 16,
     fontWeight: '700',
