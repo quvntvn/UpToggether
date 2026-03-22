@@ -3,9 +3,9 @@ import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
-import { formatSeconds } from '@/utils/time';
+import { formatReactionTime, getMockPercentile } from '@/utils/time';
 
-function getReactionSeconds(value: string | string[] | undefined) {
+function getNumberParam(value: string | string[] | undefined) {
   const rawValue = Array.isArray(value) ? value[0] : value;
   const parsedValue = rawValue ? Number(rawValue) : NaN;
 
@@ -16,12 +16,22 @@ function getReactionSeconds(value: string | string[] | undefined) {
   return Math.floor(parsedValue);
 }
 
+function getBooleanParam(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  return rawValue === 'true';
+}
+
 export default function ResultScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { reactionSeconds: reactionSecondsParam } = useLocalSearchParams<{ reactionSeconds?: string }>();
-  const reactionSeconds = getReactionSeconds(reactionSecondsParam);
-  const percentile = Math.max(1, 100 - reactionSeconds * 3);
+  const {
+    reactionSeconds: reactionSecondsParam,
+    percentile: percentileParam,
+    saved: savedParam,
+  } = useLocalSearchParams<{ reactionSeconds?: string; percentile?: string; saved?: string }>();
+  const reactionSeconds = getNumberParam(reactionSecondsParam);
+  const percentile = Math.max(1, getNumberParam(percentileParam) || getMockPercentile(reactionSeconds));
+  const wasSaved = getBooleanParam(savedParam);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -29,12 +39,13 @@ export default function ResultScreen() {
 
       <View style={styles.content}>
         <Text style={styles.kicker}>{t('result.kicker')}</Text>
-        <Text style={styles.title}>{formatSeconds(reactionSeconds)}</Text>
+        <Text style={styles.title}>{formatReactionTime(reactionSeconds)}</Text>
         <Text style={styles.subtitle}>{t('result.reactionTime')}</Text>
 
         <View style={styles.heroCard}>
           <Text style={styles.percentile}>{t('result.percentile', { value: percentile })}</Text>
           <Text style={styles.helper}>{t('result.fasterThanUsers', { value: percentile })}</Text>
+          {wasSaved ? <Text style={styles.savedText}>{t('result.savedToHistory')}</Text> : null}
         </View>
 
         <View style={styles.section}>
@@ -42,9 +53,15 @@ export default function ResultScreen() {
           <Text style={styles.sectionBody}>{t('result.whatHappenedBody')}</Text>
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={() => router.replace('/')}>
-          <Text style={styles.primaryButtonText}>{t('common.backHome')}</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable style={styles.primaryButton} onPress={() => router.replace('/')}>
+            <Text style={styles.primaryButtonText}>{t('common.backHome')}</Text>
+          </Pressable>
+
+          <Pressable style={styles.secondaryButton} onPress={() => router.push('/history')}>
+            <Text style={styles.secondaryButtonText}>{t('result.viewHistory')}</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -97,6 +114,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 8,
   },
+  savedText: {
+    color: colors.success,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 12,
+  },
   section: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -116,6 +139,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
   },
+  actions: {
+    gap: 12,
+  },
   primaryButton: {
     backgroundColor: colors.primary,
     borderRadius: 18,
@@ -126,5 +152,18 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: 16,
     fontWeight: '800',
+  },
+  secondaryButton: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

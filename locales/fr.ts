@@ -17,6 +17,13 @@ const fr = {
     settings: 'Paramètres',
     previewWakeResult: 'Aperçu du résultat du réveil',
     testWake: 'Tester le réveil',
+    statsTitle: 'Tes stats de réveil',
+    currentStreak: 'Série en cours',
+    bestStreak: 'Meilleure série',
+    averageReaction: 'Temps de réaction moyen',
+    viewHistory: 'Voir l’historique',
+    placeholderValue: '--',
+    noHistoryYet: 'Pas encore d’historique',
   },
   setAlarm: {
     title: 'Régler le réveil',
@@ -48,6 +55,16 @@ const fr = {
     whatHappened: 'Ce qu’il s’est passé',
     whatHappenedBody:
       'Ton réveil a lancé le parcours de réveil, tu as appuyé sur ARRÊTER, et l’app a mesuré ta vitesse de réaction.',
+    savedToHistory: 'Enregistré dans ton historique.',
+    viewHistory: 'Voir l’historique',
+  },
+  history: {
+    title: 'Historique des réveils',
+    subtitle: 'Un résumé simple de tes performances de réveil récentes.',
+    emptyTitle: 'Pas encore d’historique',
+    emptyBody: 'Termine un parcours de réveil et tes résultats apparaîtront ici automatiquement.',
+    scheduledTime: 'Heure prévue',
+    reactionTime: 'Temps de réaction',
   },
   wake: {
     title: 'Réveille-toi',

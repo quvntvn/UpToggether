@@ -5,21 +5,26 @@ import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
+import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
+import { getBestStreak, getCurrentStreak } from '@/utils/streak';
+import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { language, t } = useLanguage();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
+  const [results, setResults] = useState<WakeResult[]>([]);
 
-  const loadAlarm = useCallback(async () => {
-    const savedAlarm = await getSavedAlarm();
+  const loadData = useCallback(async () => {
+    const [savedAlarm, savedResults] = await Promise.all([getSavedAlarm(), getWakeResults()]);
     setAlarm(savedAlarm);
+    setResults(savedResults);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      void loadAlarm();
-    }, [loadAlarm]),
+      void loadData();
+    }, [loadData]),
   );
 
   const nextAlarmDate = useMemo(
@@ -33,6 +38,13 @@ export default function HomeScreen() {
 
     return nextAlarmDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US');
   }, [language, nextAlarmDate]);
+
+  const currentStreak = useMemo(() => getCurrentStreak(results), [results]);
+  const bestStreak = useMemo(() => getBestStreak(results), [results]);
+  const averageReactionSeconds = useMemo(
+    () => getAverageReactionSeconds(results.map((result) => result.reactionSeconds)),
+    [results],
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -57,6 +69,39 @@ export default function HomeScreen() {
               <Text style={styles.cardInfo}>{t('home.emptyAlarmDescription')}</Text>
             </>
           )}
+        </View>
+
+        <View style={styles.statsCard}>
+          <Text style={styles.cardLabel}>{t('home.statsTitle')}</Text>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {results.length > 0 ? `${currentStreak}` : t('home.placeholderValue')}
+              </Text>
+              <Text style={styles.statLabel}>{t('home.currentStreak')}</Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {results.length > 0 ? `${bestStreak}` : t('home.placeholderValue')}
+              </Text>
+              <Text style={styles.statLabel}>{t('home.bestStreak')}</Text>
+            </View>
+          </View>
+
+          <View style={styles.averageCard}>
+            <Text style={styles.statLabel}>{t('home.averageReaction')}</Text>
+            <Text style={styles.averageValue}>
+              {averageReactionSeconds === null
+                ? t('home.noHistoryYet')
+                : formatReactionTime(averageReactionSeconds)}
+            </Text>
+          </View>
+
+          <Pressable style={styles.historyButton} onPress={() => router.push('/history')}>
+            <Text style={styles.historyButtonText}>{t('home.viewHistory')}</Text>
+          </Pressable>
         </View>
 
         <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
@@ -89,7 +134,7 @@ export default function HomeScreen() {
           onPress={() =>
             router.push({
               pathname: '/result',
-              params: { reactionSeconds: '12' },
+              params: { reactionSeconds: '12', percentile: '64' },
             })
           }>
           <Text style={styles.linkButtonText}>{t('home.previewWakeResult')}</Text>
@@ -131,6 +176,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 24,
+    marginBottom: 16,
+  },
+  statsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 24,
     marginBottom: 20,
   },
   cardLabel: {
@@ -153,6 +206,57 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginTop: 10,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  statItem: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statValue: {
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  statLabel: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    marginTop: 8,
+  },
+  averageCard: {
+    backgroundColor: colors.background,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 12,
+  },
+  averageValue: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  historyButton: {
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 16,
+    marginTop: 16,
+  },
+  historyButtonText: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
   },
   primaryButton: {
     backgroundColor: colors.primary,
