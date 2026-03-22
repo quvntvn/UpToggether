@@ -1,36 +1,48 @@
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/lib/theme';
+import { formatSeconds } from '@/utils/time';
 
-const ranking = [
-  { name: 'You', time: '12 s', highlight: true },
-  { name: 'Emma', time: '18 s' },
-  { name: 'Lucas', time: '25 s' },
-];
+function getReactionSeconds(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const parsedValue = rawValue ? Number(rawValue) : NaN;
+
+  if (!Number.isFinite(parsedValue) || parsedValue < 0) {
+    return 0;
+  }
+
+  return Math.floor(parsedValue);
+}
 
 export default function ResultScreen() {
+  const router = useRouter();
+  const { reactionSeconds: reactionSecondsParam } = useLocalSearchParams<{ reactionSeconds?: string }>();
+  const reactionSeconds = getReactionSeconds(reactionSecondsParam);
+  const percentile = Math.max(1, 100 - reactionSeconds * 3);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.kicker}>Mock wake result</Text>
-        <Text style={styles.title}>12 seconds</Text>
+        <Text style={styles.kicker}>Wake result</Text>
+        <Text style={styles.title}>{formatSeconds(reactionSeconds)}</Text>
         <Text style={styles.subtitle}>Reaction time</Text>
 
         <View style={styles.heroCard}>
-          <Text style={styles.percentile}>83rd percentile</Text>
-          <Text style={styles.helper}>Faster than 83% of users</Text>
+          <Text style={styles.percentile}>{percentile}th percentile</Text>
+          <Text style={styles.helper}>Faster than {percentile}% of users</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Friends ranking preview</Text>
-          {ranking.map((entry, index) => (
-            <View key={entry.name} style={[styles.rankRow, entry.highlight && styles.rankRowHighlight]}>
-              <Text style={styles.rankIndex}>#{index + 1}</Text>
-              <Text style={styles.rankName}>{entry.name}</Text>
-              <Text style={styles.rankTime}>{entry.time}</Text>
-            </View>
-          ))}
+          <Text style={styles.sectionTitle}>What happened</Text>
+          <Text style={styles.sectionBody}>
+            Your alarm started the wake flow, you hit STOP, and the app measured how quickly you reacted.
+          </Text>
         </View>
+
+        <Pressable style={styles.primaryButton} onPress={() => router.replace('/')}>
+          <Text style={styles.primaryButtonText}>Back Home</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -44,6 +56,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 24,
+    justifyContent: 'center',
   },
   kicker: {
     color: colors.primary,
@@ -70,7 +83,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 24,
     padding: 24,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   percentile: {
     color: colors.primary,
@@ -88,39 +101,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 24,
     padding: 20,
+    marginBottom: 20,
   },
   sectionTitle: {
     color: colors.text,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  rankRow: {
-    flexDirection: 'row',
+  sectionBody: {
+    color: colors.secondaryText,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  primaryButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 18,
+    paddingVertical: 18,
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
   },
-  rankRowHighlight: {
-    backgroundColor: 'rgba(255, 213, 74, 0.08)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-  },
-  rankIndex: {
-    color: colors.mutedText,
-    width: 40,
-    fontSize: 15,
-  },
-  rankName: {
-    color: colors.text,
-    flex: 1,
+  primaryButtonText: {
+    color: colors.background,
     fontSize: 16,
-    fontWeight: '600',
-  },
-  rankTime: {
-    color: colors.primary,
-    fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
