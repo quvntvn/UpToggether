@@ -3,6 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DEFAULT_ALARM_SOUND_ID } from '@/constants/alarmSounds';
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import {
@@ -47,9 +48,10 @@ export default function SetAlarmScreen() {
       const previousAlarm = await getSavedAlarm();
       await cancelScheduledAlarm(previousAlarm?.notificationId);
 
-      const { notificationId, nextAlarmDate } = await scheduleAlarmNotification(
+      const { notificationId, nextAlarmDate, soundId } = await scheduleAlarmNotification(
         time.getHours(),
         time.getMinutes(),
+        DEFAULT_ALARM_SOUND_ID,
       );
 
       await saveAlarm({
@@ -58,6 +60,7 @@ export default function SetAlarmScreen() {
         formattedTime: formattedSelectedTime,
         nextScheduledTimestamp: nextAlarmDate.getTime(),
         enabled: true,
+        soundId,
         notificationId,
       });
 
