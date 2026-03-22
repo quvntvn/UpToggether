@@ -5,14 +5,15 @@ import { colors } from '@/lib/theme';
 type FriendCardProps = {
   name: string;
   reactionTime: string;
+  caption: string;
 };
 
-export function FriendCard({ name, reactionTime }: FriendCardProps) {
+export function FriendCard({ name, reactionTime, caption }: FriendCardProps) {
   return (
     <View style={styles.card}>
       <View>
         <Text style={styles.name}>{name}</Text>
-        <Text style={styles.caption}>Wake crew member</Text>
+        <Text style={styles.caption}>{caption}</Text>
       </View>
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{reactionTime}</Text>

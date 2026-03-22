@@ -37,10 +37,7 @@ export async function requestAlarmPermissions() {
 
   const requested = await Notifications.requestPermissionsAsync();
 
-  return (
-    requested.granted ||
-    requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  );
+  return requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
 }
 
 export async function cancelScheduledAlarm(notificationId?: string | null) {

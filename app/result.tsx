@@ -1,6 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { formatSeconds } from '@/utils/time';
 
@@ -17,31 +18,32 @@ function getReactionSeconds(value: string | string[] | undefined) {
 
 export default function ResultScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { reactionSeconds: reactionSecondsParam } = useLocalSearchParams<{ reactionSeconds?: string }>();
   const reactionSeconds = getReactionSeconds(reactionSecondsParam);
   const percentile = Math.max(1, 100 - reactionSeconds * 3);
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ title: t('result.title') }} />
+
       <View style={styles.content}>
-        <Text style={styles.kicker}>Wake result</Text>
+        <Text style={styles.kicker}>{t('result.kicker')}</Text>
         <Text style={styles.title}>{formatSeconds(reactionSeconds)}</Text>
-        <Text style={styles.subtitle}>Reaction time</Text>
+        <Text style={styles.subtitle}>{t('result.reactionTime')}</Text>
 
         <View style={styles.heroCard}>
-          <Text style={styles.percentile}>{percentile}th percentile</Text>
-          <Text style={styles.helper}>Faster than {percentile}% of users</Text>
+          <Text style={styles.percentile}>{t('result.percentile', { value: percentile })}</Text>
+          <Text style={styles.helper}>{t('result.fasterThanUsers', { value: percentile })}</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What happened</Text>
-          <Text style={styles.sectionBody}>
-            Your alarm started the wake flow, you hit STOP, and the app measured how quickly you reacted.
-          </Text>
+          <Text style={styles.sectionTitle}>{t('result.whatHappened')}</Text>
+          <Text style={styles.sectionBody}>{t('result.whatHappenedBody')}</Text>
         </View>
 
         <Pressable style={styles.primaryButton} onPress={() => router.replace('/')}>
-          <Text style={styles.primaryButtonText}>Back Home</Text>
+          <Text style={styles.primaryButtonText}>{t('common.backHome')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

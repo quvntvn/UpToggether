@@ -1,7 +1,8 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { formatSeconds } from '@/utils/time';
 
@@ -14,6 +15,7 @@ function getStartTime(startTimeParam: string | string[] | undefined) {
 
 export default function WakeScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { startTime: startTimeParam } = useLocalSearchParams<{ startTime?: string }>();
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startTime));
@@ -44,14 +46,16 @@ export default function WakeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ title: t('wake.title') }} />
+
       <View style={styles.content}>
-        <Text style={styles.kicker}>Alarm ringing</Text>
-        <Text style={styles.title}>Wake up</Text>
-        <Text style={styles.timerLabel}>Reaction timer</Text>
+        <Text style={styles.kicker}>{t('wake.kicker')}</Text>
+        <Text style={styles.title}>{t('wake.title')}</Text>
+        <Text style={styles.timerLabel}>{t('wake.timerLabel')}</Text>
         <Text style={styles.timerValue}>{formatSeconds(elapsedSeconds)}</Text>
 
         <Pressable style={styles.stopButton} onPress={handleStop}>
-          <Text style={styles.stopButtonText}>STOP</Text>
+          <Text style={styles.stopButtonText}>{t('common.stop')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

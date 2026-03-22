@@ -1,8 +1,9 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import {
   cancelScheduledAlarm,
@@ -14,6 +15,7 @@ import { getSavedAlarm, saveAlarm } from '@/storage/alarmStorage';
 
 export default function SetAlarmScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [time, setTime] = useState(() => new Date());
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,8 +38,8 @@ export default function SetAlarmScreen() {
 
       if (!permissionsGranted) {
         Alert.alert(
-          'Notifications disabled',
-          'Allow notifications to receive your local alarm reminders in a development build.',
+          t('setAlarm.notificationsDisabledTitle'),
+          t('setAlarm.notificationsDisabledMessage'),
         );
         return;
       }
@@ -59,15 +61,19 @@ export default function SetAlarmScreen() {
         notificationId,
       });
 
-      Alert.alert('Alarm saved', `Your next alarm is set for ${formattedSelectedTime}.`, [
-        {
-          text: 'Nice',
-          onPress: () => router.back(),
-        },
-      ]);
+      Alert.alert(
+        t('setAlarm.alarmSavedTitle'),
+        t('setAlarm.alarmSavedMessage', { time: formattedSelectedTime }),
+        [
+          {
+            text: t('setAlarm.alarmSavedButton'),
+            onPress: () => router.back(),
+          },
+        ],
+      );
     } catch (error) {
       console.error('Failed to save alarm', error);
-      Alert.alert('Could not save alarm', 'Please try again in a development build with notifications enabled.');
+      Alert.alert(t('setAlarm.saveFailedTitle'), t('setAlarm.saveFailedMessage'));
     } finally {
       setIsSaving(false);
     }
@@ -75,10 +81,12 @@ export default function SetAlarmScreen() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ title: t('setAlarm.title') }} />
+
       <View style={styles.card}>
-        <Text style={styles.label}>Selected time</Text>
+        <Text style={styles.label}>{t('setAlarm.selectedTime')}</Text>
         <Text style={styles.time}>{formattedSelectedTime}</Text>
-        <Text style={styles.helper}>If today has already passed, the alarm will ring tomorrow.</Text>
+        <Text style={styles.helper}>{t('setAlarm.helper')}</Text>
 
         <DateTimePicker
           value={time}
@@ -93,12 +101,17 @@ export default function SetAlarmScreen() {
         />
       </View>
 
-      <Pressable style={[styles.primaryButton, isSaving && styles.disabledButton]} onPress={handleSaveAlarm} disabled={isSaving}>
-        <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save Alarm'}</Text>
+      <Pressable
+        style={[styles.primaryButton, isSaving && styles.disabledButton]}
+        onPress={handleSaveAlarm}
+        disabled={isSaving}>
+        <Text style={styles.primaryButtonText}>
+          {isSaving ? t('setAlarm.saving') : t('setAlarm.saveAlarm')}
+        </Text>
       </Pressable>
 
       <Pressable style={styles.secondaryButton} onPress={() => router.back()} disabled={isSaving}>
-        <Text style={styles.secondaryButtonText}>Cancel</Text>
+        <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
       </Pressable>
     </View>
   );

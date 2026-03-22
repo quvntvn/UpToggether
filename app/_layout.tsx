@@ -3,6 +3,8 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { LanguageProvider } from '@/context/language-context';
+
 const appTheme = {
   ...DarkTheme,
   colors: {
@@ -18,22 +20,25 @@ const appTheme = {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={appTheme}>
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: '#0F172A' },
-          headerShadowVisible: false,
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: { fontWeight: '700' },
-          contentStyle: { backgroundColor: '#0F172A' },
-        }}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="set-alarm" options={{ title: 'Set Alarm' }} />
-        <Stack.Screen name="friends" options={{ title: 'Friends' }} />
-        <Stack.Screen name="wake" options={{ title: 'Wake Up', presentation: 'fullScreenModal' }} />
-        <Stack.Screen name="result" options={{ title: 'Wake Result' }} />
-      </Stack>
-      <StatusBar style="light" />
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider value={appTheme}>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: '#0F172A' },
+            headerShadowVisible: false,
+            headerTintColor: '#FFFFFF',
+            headerTitleStyle: { fontWeight: '700' },
+            contentStyle: { backgroundColor: '#0F172A' },
+          }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="set-alarm" />
+          <Stack.Screen name="friends" />
+          <Stack.Screen name="wake" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="result" />
+          <Stack.Screen name="settings" />
+        </Stack>
+        <StatusBar style="light" />
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
