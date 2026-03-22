@@ -1,0 +1,66 @@
+const en = {
+  appName: 'UpTogether',
+  slogan: 'Don’t wake up alone.',
+  common: {
+    cancel: 'Cancel',
+    save: 'Save',
+    stop: 'Stop',
+    backHome: 'Back Home',
+  },
+  home: {
+    nextAlarm: 'Next alarm',
+    noAlarmSaved: 'No alarm saved yet',
+    emptyAlarmDescription: 'Set your first wake-up to keep your mornings on track.',
+    scheduledFor: 'Scheduled for {{date}} at {{time}}',
+    setAlarm: 'Set Alarm',
+    friends: 'Friends',
+    settings: 'Settings',
+    previewWakeResult: 'Preview wake result',
+    testWake: 'Test Wake',
+  },
+  setAlarm: {
+    title: 'Set Alarm',
+    selectedTime: 'Selected time',
+    helper: 'If today has already passed, the alarm will ring tomorrow.',
+    saveAlarm: 'Save Alarm',
+    saving: 'Saving...',
+    notificationsDisabledTitle: 'Notifications disabled',
+    notificationsDisabledMessage:
+      'Allow notifications to receive your local alarm reminders in a development build.',
+    alarmSavedTitle: 'Alarm saved',
+    alarmSavedMessage: 'Your next alarm is set for {{time}}.',
+    alarmSavedButton: 'Nice',
+    saveFailedTitle: 'Could not save alarm',
+    saveFailedMessage: 'Please try again in a development build with notifications enabled.',
+  },
+  friends: {
+    title: 'Friends',
+    subtitle: 'Your wake crew will appear here.',
+    memberLabel: 'Wake crew member',
+  },
+  result: {
+    title: 'Wake Result',
+    kicker: 'Wake result',
+    reactionTime: 'Reaction time',
+    percentile: '{{value}}th percentile',
+    fasterThanUsers: 'Faster than {{value}}% of users',
+    whatHappened: 'What happened',
+    whatHappenedBody:
+      'Your alarm started the wake flow, you hit STOP, and the app measured how quickly you reacted.',
+  },
+  wake: {
+    title: 'Wake Up',
+    kicker: 'Alarm ringing',
+    timerLabel: 'Reaction timer',
+  },
+  settings: {
+    title: 'Settings',
+    subtitle: 'Choose how UpTogether speaks to you.',
+    languageSection: 'Language',
+    french: 'Français',
+    english: 'English',
+    activeLabel: 'Selected',
+  },
+} as const;
+
+export default en;

@@ -1,6 +1,8 @@
+import { Stack } from 'expo-router';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { FriendCard } from '@/components/friend-card';
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 
 const mockFriends = [
@@ -10,15 +12,24 @@ const mockFriends = [
 ];
 
 export default function FriendsScreen() {
+  const { t } = useLanguage();
+
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ title: t('friends.title') }} />
+
       <View style={styles.content}>
-        <Text style={styles.title}>Friends</Text>
-        <Text style={styles.subtitle}>Your wake crew will appear here.</Text>
+        <Text style={styles.title}>{t('friends.title')}</Text>
+        <Text style={styles.subtitle}>{t('friends.subtitle')}</Text>
 
         <View style={styles.list}>
           {mockFriends.map((friend) => (
-            <FriendCard key={friend.name} name={friend.name} reactionTime={friend.reactionTime} />
+            <FriendCard
+              key={friend.name}
+              name={friend.name}
+              reactionTime={friend.reactionTime}
+              caption={t('friends.memberLabel')}
+            />
           ))}
         </View>
       </View>

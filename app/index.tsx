@@ -1,12 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { language, t } = useLanguage();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
 
   const loadAlarm = useCallback(async () => {
@@ -20,37 +22,45 @@ export default function HomeScreen() {
     }, [loadAlarm]),
   );
 
-  const nextAlarmDate = alarm ? new Date(alarm.nextScheduledTimestamp) : null;
+  const nextAlarmDate = useMemo(
+    () => (alarm ? new Date(alarm.nextScheduledTimestamp) : null),
+    [alarm],
+  );
+  const formattedAlarmDate = useMemo(() => {
+    if (!nextAlarmDate) {
+      return null;
+    }
+
+    return nextAlarmDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US');
+  }, [language, nextAlarmDate]);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.hero}>
-          <Text style={styles.brand}>UpTogether</Text>
-          <Text style={styles.slogan}>Don’t wake up alone.</Text>
+          <Text style={styles.brand}>{t('appName')}</Text>
+          <Text style={styles.slogan}>{t('slogan')}</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Next alarm</Text>
-          {alarm?.enabled && nextAlarmDate ? (
+          <Text style={styles.cardLabel}>{t('home.nextAlarm')}</Text>
+          {alarm?.enabled && nextAlarmDate && formattedAlarmDate ? (
             <>
               <Text style={styles.cardTime}>{alarm.formattedTime}</Text>
               <Text style={styles.cardInfo}>
-                Scheduled for {nextAlarmDate.toLocaleDateString()} at {alarm.formattedTime}
+                {t('home.scheduledFor', { date: formattedAlarmDate, time: alarm.formattedTime })}
               </Text>
             </>
           ) : (
             <>
-              <Text style={styles.placeholderTitle}>No alarm saved yet</Text>
-              <Text style={styles.cardInfo}>
-                Set your first wake-up to keep your mornings on track.
-              </Text>
+              <Text style={styles.placeholderTitle}>{t('home.noAlarmSaved')}</Text>
+              <Text style={styles.cardInfo}>{t('home.emptyAlarmDescription')}</Text>
             </>
           )}
         </View>
 
         <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
-          <Text style={styles.primaryButtonText}>Set Alarm</Text>
+          <Text style={styles.primaryButtonText}>{t('home.setAlarm')}</Text>
         </Pressable>
 
         <Pressable
@@ -61,12 +71,18 @@ export default function HomeScreen() {
               params: { startTime: String(Date.now()) },
             })
           }>
-          <Text style={styles.secondaryButtonText}>Test Wake</Text>
+          <Text style={styles.secondaryButtonText}>{t('home.testWake')}</Text>
         </Pressable>
 
-        <Pressable style={styles.tertiaryButton} onPress={() => router.push('/friends')}>
-          <Text style={styles.tertiaryButtonText}>Friends</Text>
-        </Pressable>
+        <View style={styles.rowButtons}>
+          <Pressable style={styles.rowButton} onPress={() => router.push('/friends')}>
+            <Text style={styles.rowButtonText}>{t('home.friends')}</Text>
+          </Pressable>
+
+          <Pressable style={styles.rowButton} onPress={() => router.push('/settings')}>
+            <Text style={styles.rowButtonText}>{t('home.settings')}</Text>
+          </Pressable>
+        </View>
 
         <Pressable
           style={styles.linkButton}
@@ -76,7 +92,7 @@ export default function HomeScreen() {
               params: { reactionSeconds: '12' },
             })
           }>
-          <Text style={styles.linkButtonText}>Preview wake result</Text>
+          <Text style={styles.linkButtonText}>{t('home.previewWakeResult')}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -164,7 +180,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  tertiaryButton: {
+  rowButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rowButton: {
+    flex: 1,
     backgroundColor: 'transparent',
     borderRadius: 18,
     borderWidth: 1,
@@ -172,7 +193,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
   },
-  tertiaryButtonText: {
+  rowButtonText: {
     color: colors.text,
     fontSize: 16,
     fontWeight: '700',
