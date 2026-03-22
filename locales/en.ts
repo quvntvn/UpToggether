@@ -17,6 +17,13 @@ const en = {
     settings: 'Settings',
     previewWakeResult: 'Preview wake result',
     testWake: 'Test Wake',
+    statsTitle: 'Your wake stats',
+    currentStreak: 'Current streak',
+    bestStreak: 'Best streak',
+    averageReaction: 'Average reaction time',
+    viewHistory: 'View History',
+    placeholderValue: '--',
+    noHistoryYet: 'No wake history yet',
   },
   setAlarm: {
     title: 'Set Alarm',
@@ -47,6 +54,16 @@ const en = {
     whatHappened: 'What happened',
     whatHappenedBody:
       'Your alarm started the wake flow, you hit STOP, and the app measured how quickly you reacted.',
+    savedToHistory: 'Saved to your history.',
+    viewHistory: 'View History',
+  },
+  history: {
+    title: 'Wake History',
+    subtitle: 'A simple record of your recent wake performance.',
+    emptyTitle: 'No wake history yet',
+    emptyBody: 'Finish a wake flow and your results will appear here automatically.',
+    scheduledTime: 'Scheduled time',
+    reactionTime: 'Reaction time',
   },
   wake: {
     title: 'Wake Up',

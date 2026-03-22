@@ -35,6 +35,7 @@ export default function RootLayout() {
           <Stack.Screen name="friends" />
           <Stack.Screen name="wake" options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="result" />
+          <Stack.Screen name="history" />
           <Stack.Screen name="settings" />
         </Stack>
         <StatusBar style="light" />
