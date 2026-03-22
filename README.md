@@ -48,3 +48,11 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+
+## Custom alarm sound setup
+
+- Place the first alarm sound file at `assets/sounds/alarm.mp3`.
+- After adding or replacing that file, create a new native development build so `expo-notifications` can bundle the sound into the app binary.
+- If the file is missing, the app falls back to the system default notification sound.
+- On Android 8+ the custom sound is tied to the app's alarm notification channel. If you change the bundled sound file, reinstalling the app is the safest way to ensure the updated channel sound is picked up.

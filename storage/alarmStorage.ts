@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { AlarmSoundId } from '@/constants/alarmSounds';
+
 const ALARM_STORAGE_KEY = 'uptogether.alarm';
 
 export type SavedAlarm = {
@@ -8,6 +10,7 @@ export type SavedAlarm = {
   formattedTime: string;
   nextScheduledTimestamp: number;
   enabled: boolean;
+  soundId?: AlarmSoundId;
   notificationId?: string;
 };
 
