@@ -1,9 +1,12 @@
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { LanguageProvider } from '@/context/language-context';
+import { getWakeRouteParamsFromNotification } from '@/services/alarm';
 
 const appTheme = {
   ...DarkTheme,
@@ -18,10 +21,60 @@ const appTheme = {
   },
 };
 
+function AlarmNotificationBridge() {
+  const router = useRouter();
+  const hasHandledInitialResponse = useRef(false);
+
+  useEffect(() => {
+    const navigateFromResponse = (response: Notifications.NotificationResponse | null) => {
+      if (!response) {
+        return;
+      }
+
+      const params = getWakeRouteParamsFromNotification(response.notification);
+
+      router.replace({
+        pathname: '/wake',
+        params,
+      });
+    };
+
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      navigateFromResponse(response);
+    });
+
+    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+      const params = getWakeRouteParamsFromNotification(notification);
+
+      router.replace({
+        pathname: '/wake',
+        params,
+      });
+    });
+
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (hasHandledInitialResponse.current) {
+        return;
+      }
+
+      hasHandledInitialResponse.current = true;
+      navigateFromResponse(response);
+    });
+
+    return () => {
+      responseSubscription.remove();
+      receivedSubscription.remove();
+    };
+  }, [router]);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <LanguageProvider>
       <ThemeProvider value={appTheme}>
+        <AlarmNotificationBridge />
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: '#0F172A' },
@@ -33,7 +86,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="set-alarm" />
           <Stack.Screen name="friends" />
-          <Stack.Screen name="wake" options={{ presentation: 'fullScreenModal' }} />
+          <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
           <Stack.Screen name="result" />
           <Stack.Screen name="history" />
           <Stack.Screen name="settings" />

@@ -6,8 +6,11 @@ export type WakeResult = {
   id: string;
   date: string;
   scheduledTime: string;
+  alarmTime?: string;
+  timestamp?: string;
   stoppedAt: string;
   reactionSeconds: number;
+  reactionTime: number;
   percentile: number;
   snoozeCount: number;
   success: boolean;

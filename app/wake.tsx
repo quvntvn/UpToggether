@@ -1,12 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Pressable, SafeAreaView, StyleSheet, Text, Vibration, View } from 'react-native';
 
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
+import { playAlarmSound, stopAlarmSound } from '@/services/sound';
 import { getSavedAlarm } from '@/storage/alarmStorage';
 import { saveWakeResult } from '@/storage/wakeResultsStorage';
-import { formatReactionTime, formatScheduledTime, getMockPercentile } from '@/utils/time';
+import { formatScheduledTime, getMockPercentile } from '@/utils/time';
 
 function getStartTime(startTimeParam: string | string[] | undefined) {
   const rawValue = Array.isArray(startTimeParam) ? startTimeParam[0] : startTimeParam;
@@ -15,11 +16,22 @@ function getStartTime(startTimeParam: string | string[] | undefined) {
   return Number.isFinite(parsedValue) ? parsedValue : Date.now();
 }
 
+function formatMilliseconds(milliseconds: number) {
+  const safeMilliseconds = Math.max(0, milliseconds);
+  const minutes = Math.floor(safeMilliseconds / 60000);
+  const seconds = Math.floor((safeMilliseconds % 60000) / 1000);
+  const centiseconds = Math.floor((safeMilliseconds % 1000) / 10);
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+}
+
 export default function WakeScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { startTime: startTimeParam } = useLocalSearchParams<{ startTime?: string }>();
+  const { startTime: startTimeParam, alarmTime: alarmTimeParam } =
+    useLocalSearchParams<{ startTime?: string; alarmTime?: string }>();
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
+  const alarmTime = Array.isArray(alarmTimeParam) ? alarmTimeParam[0] : alarmTimeParam;
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startTime));
   const [isStopping, setIsStopping] = useState(false);
   const stopInFlightRef = useRef(false);
@@ -34,7 +46,20 @@ export default function WakeScreen() {
     return () => clearInterval(interval);
   }, [startTime]);
 
-  const elapsedSeconds = Math.floor(elapsedMs / 1000);
+  useEffect(() => {
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => true);
+    Vibration.vibrate([0, 400, 300, 400], true);
+
+    void playAlarmSound().catch(() => {
+      Alert.alert('Alarm sound unavailable', 'Please stop alarm now.');
+    });
+
+    return () => {
+      backSubscription.remove();
+      Vibration.cancel();
+      void stopAlarmSound();
+    };
+  }, []);
 
   const handleStop = async () => {
     if (stopInFlightRef.current) {
@@ -45,19 +70,27 @@ export default function WakeScreen() {
     setIsStopping(true);
 
     const stoppedAt = new Date();
-    const reactionTime = stoppedAt.getTime() - startTime;
-    const reactionSeconds = Math.floor(Math.max(0, reactionTime) / 1000);
+    const reactionTime = Math.max(0, stoppedAt.getTime() - startTime);
+    const reactionSeconds = Math.floor(reactionTime / 1000);
     const percentile = getMockPercentile(reactionSeconds);
+
+    await stopAlarmSound();
+    Vibration.cancel();
+
     const savedAlarm = await getSavedAlarm();
-    const scheduledTime = savedAlarm?.formattedTime ?? formatScheduledTime(new Date(startTime));
-    const resultId = `${stoppedAt.toISOString()}-${reactionSeconds}`;
+    const scheduledTime =
+      alarmTime ?? savedAlarm?.formattedTime ?? formatScheduledTime(new Date(startTime));
+    const resultId = `${stoppedAt.toISOString()}-${reactionTime}`;
 
     await saveWakeResult({
       id: resultId,
       date: stoppedAt.toISOString(),
+      timestamp: stoppedAt.toISOString(),
       scheduledTime,
+      alarmTime: scheduledTime,
       stoppedAt: stoppedAt.toISOString(),
       reactionSeconds,
+      reactionTime,
       percentile,
       snoozeCount: 0,
       success: true,
@@ -67,6 +100,7 @@ export default function WakeScreen() {
       pathname: '/result',
       params: {
         reactionSeconds: String(reactionSeconds),
+        reactionTime: String(reactionTime),
         percentile: String(percentile),
         saved: 'true',
       },
@@ -75,13 +109,10 @@ export default function WakeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: t('wake.title') }} />
+      <Stack.Screen options={{ headerShown: false, title: t('wake.title') }} />
 
       <View style={styles.content}>
-        <Text style={styles.kicker}>{t('wake.kicker')}</Text>
-        <Text style={styles.title}>{t('wake.title')}</Text>
-        <Text style={styles.timerLabel}>{t('wake.timerLabel')}</Text>
-        <Text style={styles.timerValue}>{formatReactionTime(elapsedSeconds)}</Text>
+        <Text style={styles.timerValue}>{formatMilliseconds(elapsedMs)}</Text>
 
         <Pressable style={styles.stopButton} onPress={() => void handleStop()} disabled={isStopping}>
           <Text style={styles.stopButtonText}>{t('common.stop')}</Text>
@@ -94,52 +125,34 @@ export default function WakeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#05070F',
   },
   content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  kicker: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 16,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: colors.text,
-    fontSize: 52,
-    fontWeight: '800',
-    marginBottom: 20,
-  },
-  timerLabel: {
-    color: colors.secondaryText,
-    fontSize: 18,
-    marginBottom: 12,
+    paddingHorizontal: 20,
   },
   timerValue: {
     color: colors.text,
-    fontSize: 40,
-    fontWeight: '700',
-    marginBottom: 48,
+    fontSize: 60,
+    fontWeight: '800',
+    marginBottom: 56,
+    letterSpacing: 1,
   },
   stopButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
     borderRadius: 999,
     justifyContent: 'center',
-    minHeight: 180,
-    minWidth: 180,
+    minHeight: 220,
+    minWidth: 220,
     padding: 24,
   },
   stopButtonText: {
-    color: colors.background,
-    fontSize: 30,
-    fontWeight: '800',
+    color: '#111827',
+    fontSize: 40,
+    fontWeight: '900',
     letterSpacing: 1,
   },
 });

@@ -11,6 +11,13 @@ import {
 const ALARM_BODY = 'Wake up! Don\'t wake up alone.';
 const ANDROID_ALARM_CHANNEL_ID = 'alarm-custom';
 
+export type AlarmNotificationData = {
+  type: 'alarm';
+  route: '/wake';
+  startTime: number;
+  alarmTime: string;
+};
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -51,6 +58,15 @@ export function resolveAlarmNotificationSound(soundId: AlarmSoundId = DEFAULT_AL
   return sound.fileName ?? 'default';
 }
 
+function getAlarmNotificationData(nextAlarmDate: Date): AlarmNotificationData {
+  return {
+    type: 'alarm',
+    route: '/wake',
+    startTime: nextAlarmDate.getTime(),
+    alarmTime: formatAlarmTime(nextAlarmDate.getHours(), nextAlarmDate.getMinutes()),
+  };
+}
+
 async function ensureAlarmNotificationChannel(soundName: string) {
   if (Platform.OS !== 'android' || soundName === 'default') {
     return undefined;
@@ -61,7 +77,7 @@ async function ensureAlarmNotificationChannel(soundName: string) {
     description: 'Wake alarms for scheduled UpTogether notifications.',
     importance: Notifications.AndroidImportance.MAX,
     sound: soundName,
-    vibrationPattern: [0, 250, 250, 250],
+    vibrationPattern: [0, 500, 250, 500, 250, 500],
     enableVibrate: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: true,
@@ -107,6 +123,7 @@ export async function scheduleAlarmNotification(
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
   const nextAlarmDate = getNextAlarmDate(hour, minute);
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
+  const data = getAlarmNotificationData(nextAlarmDate);
 
   try {
     const channelId = await ensureAlarmNotificationChannel(preferredSoundName);
@@ -116,12 +133,13 @@ export async function scheduleAlarmNotification(
         title: 'UpTogether',
         body: ALARM_BODY,
         sound: preferredSoundName,
+        data,
       },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
+      trigger: ({
+        type: 'date',
         date: nextAlarmDate,
         channelId,
-      },
+      } as unknown) as Notifications.NotificationTriggerInput,
     });
 
     return {
@@ -137,11 +155,12 @@ export async function scheduleAlarmNotification(
         title: 'UpTogether',
         body: ALARM_BODY,
         sound: 'default',
+        data,
       },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
+      trigger: ({
+        type: 'date',
         date: nextAlarmDate,
-      },
+      } as unknown) as Notifications.NotificationTriggerInput,
     });
 
     return {
@@ -150,4 +169,19 @@ export async function scheduleAlarmNotification(
       soundId: DEFAULT_ALARM_SOUND_ID,
     };
   }
+}
+
+export function getWakeRouteParamsFromNotification(
+  notification: Notifications.Notification,
+): { startTime: string; alarmTime: string } {
+  const data = notification.request.content.data as Partial<AlarmNotificationData>;
+  const notificationDate = new Date(notification.date);
+  const fallback = notificationDate.getTime();
+
+  return {
+    startTime: String(
+      typeof data.startTime === 'number' && Number.isFinite(data.startTime) ? data.startTime : fallback,
+    ),
+    alarmTime: typeof data.alarmTime === 'string' ? data.alarmTime : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
+  };
 }
