@@ -3,12 +3,29 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
 import { getBestStreak, getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
+
+function toOrdinal(value: number) {
+  if (value % 10 === 1 && value % 100 !== 11) {
+    return `${value}st`;
+  }
+
+  if (value % 10 === 2 && value % 100 !== 12) {
+    return `${value}nd`;
+  }
+
+  if (value % 10 === 3 && value % 100 !== 13) {
+    return `${value}rd`;
+  }
+
+  return `${value}th`;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -50,6 +67,20 @@ export default function HomeScreen() {
 
   const latestResultSeconds = results.length > 0 ? results[0]?.reactionSeconds ?? 18 : 18;
   const morningPreview = useMemo(() => buildMorningPreview(latestResultSeconds), [latestResultSeconds]);
+  const todaysWakeResult = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    return results.find((result) => result.stoppedAt.slice(0, 10) === todayKey);
+  }, [results]);
+  const morningSquadSnapshot = useMemo(
+    () =>
+      buildMockGroupSnapshot({
+        userReactionSeconds: todaysWakeResult?.reactionSeconds,
+        hasUserWakeResult: Boolean(todaysWakeResult),
+      }),
+    [todaysWakeResult],
+  );
+  const userGroupStatus = morningSquadSnapshot.members.find((member) => member.isUser);
+  const topStatuses = morningSquadSnapshot.members.filter((member) => !member.isUser).slice(0, 2);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -153,6 +184,36 @@ export default function HomeScreen() {
               <Text style={styles.previewButtonText}>Open Friends</Text>
             </Pressable>
           </View>
+
+          <Pressable style={styles.groupCard} onPress={() => router.push('/group')}>
+            <View style={styles.groupHeader}>
+              <Text style={styles.groupTitle}>{morningSquadSnapshot.groupName}</Text>
+              <Text style={styles.groupStreak}>Streak: {morningSquadSnapshot.streakDays} days</Text>
+            </View>
+            <Text style={styles.groupSubtitle}>Don&apos;t wake up alone.</Text>
+
+            <View style={styles.previewList}>
+              {topStatuses.map((member) => (
+                <View key={member.id} style={styles.previewRow}>
+                  <Text style={styles.previewBullet}>•</Text>
+                  <Text style={styles.previewText}>
+                    {member.name} is {formatGroupStatusLabel(member).toLowerCase()}
+                  </Text>
+                </View>
+              ))}
+              <View style={styles.previewRow}>
+                <Text style={styles.previewBullet}>•</Text>
+                <Text style={styles.previewText}>
+                  You are currently {toOrdinal(morningSquadSnapshot.userPosition)}{' '}
+                  {userGroupStatus?.status === 'awake' ? 'today' : 'in the queue'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.groupButton}>
+              <Text style={styles.groupButtonText}>Open Morning Squad</Text>
+            </View>
+          </Pressable>
 
           <Pressable
             style={styles.linkButton}
@@ -333,6 +394,50 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   previewButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  groupCard: {
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 18,
+    marginBottom: 20,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  groupTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    flex: 1,
+  },
+  groupStreak: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  groupSubtitle: {
+    color: colors.secondaryText,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  groupButton: {
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(255, 213, 74, 0.14)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  groupButtonText: {
     color: colors.primary,
     fontSize: 14,
     fontWeight: '800',
