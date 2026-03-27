@@ -50,8 +50,10 @@ export default function WakeScreen() {
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => true);
     Vibration.vibrate([0, 400, 300, 400], true);
 
-    void playAlarmSound().catch(() => {
-      Alert.alert('Alarm sound unavailable', 'Please stop alarm now.');
+    void playAlarmSound().then((didPlay) => {
+      if (!didPlay) {
+        Alert.alert('Alarm sound unavailable', 'Please stop alarm now.');
+      }
     });
 
     return () => {
