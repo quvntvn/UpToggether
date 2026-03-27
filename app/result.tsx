@@ -1,7 +1,8 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useLanguage } from '@/context/language-context';
+import { buildMorningFeed, buildTodayRanking } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { formatReactionTime, getMockPercentile } from '@/utils/time';
 
@@ -30,7 +31,6 @@ function formatReactionMilliseconds(milliseconds: number) {
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
   const {
     reactionSeconds: reactionSecondsParam,
     reactionTime: reactionTimeParam,
@@ -47,32 +47,73 @@ export default function ResultScreen() {
   const percentile = Math.max(1, Math.floor(getNumberParam(percentileParam)) || getMockPercentile(reactionSeconds));
   const wasSaved = getBooleanParam(savedParam);
 
+  const ranking = useMemo(() => buildTodayRanking(reactionSeconds), [reactionSeconds]);
+  const feed = useMemo(() => buildMorningFeed(ranking), [ranking]);
+
+  const userRank = ranking.find((entry) => entry.isUser)?.rank ?? ranking.length;
+  const friendCount = Math.max(0, ranking.length - 1);
+
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: t('result.title') }} />
+      <Stack.Screen options={{ title: 'Wake Result' }} />
 
-      <View style={styles.content}>
-        <Text style={styles.kicker}>{t('result.kicker')}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.kicker}>WAKE RESULT</Text>
         <Text style={styles.title}>{formatReactionTime(reactionSeconds)}</Text>
         {reactionTime > 0 ? <Text style={styles.subTitleMs}>{formatReactionMilliseconds(reactionTime)}</Text> : null}
-        <Text style={styles.subtitle}>{t('result.reactionTime')}</Text>
+        <Text style={styles.subtitle}>Reaction time</Text>
 
         <View style={styles.heroCard}>
-          <Text style={styles.percentile}>{t('result.percentile', { value: percentile })}</Text>
-          <Text style={styles.helper}>{t('result.fasterThanUsers', { value: percentile })}</Text>
-          {wasSaved ? <Text style={styles.savedText}>{t('result.savedToHistory')}</Text> : null}
+          <Text style={styles.percentile}>{percentile}th percentile</Text>
+          <Text style={styles.helper}>Faster than {percentile}% of users</Text>
+          {wasSaved ? <Text style={styles.savedText}>Saved to your history.</Text> : null}
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Today&apos;s ranking</Text>
+          <Text style={styles.sectionSubtitle}>You finished {userRank} out of {friendCount + 1} total wake-ups.</Text>
+
+          <View style={styles.rankList}>
+            {ranking.map((entry) => (
+              <View key={entry.id} style={[styles.rankRow, entry.isUser ? styles.userRankRow : null]}>
+                <Text style={[styles.rankNumber, entry.isUser ? styles.userRankText : null]}>{entry.rank}</Text>
+                <Text style={styles.rankAvatar}>{entry.avatar}</Text>
+
+                <View style={styles.rankBody}>
+                  <Text style={[styles.rankName, entry.isUser ? styles.userRankText : null]}>{entry.name}</Text>
+                  <Text style={styles.rankStatus}>{entry.status}</Text>
+                </View>
+
+                <Text style={[styles.rankTime, entry.isUser ? styles.userRankTime : null]}>
+                  {formatReactionTime(entry.reactionSeconds)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Morning feed</Text>
+          <View style={styles.feedList}>
+            {feed.map((item) => (
+              <View key={item.id} style={styles.feedRow}>
+                <Text style={styles.feedBullet}>•</Text>
+                <Text style={styles.feedText}>{item.message}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={styles.actions}>
           <Pressable style={styles.primaryButton} onPress={() => router.replace('/')}>
-            <Text style={styles.primaryButtonText}>{t('common.backHome')}</Text>
+            <Text style={styles.primaryButtonText}>Back Home</Text>
           </Pressable>
 
           <Pressable style={styles.secondaryButton} onPress={() => router.push('/history')}>
-            <Text style={styles.secondaryButtonText}>{t('result.viewHistory')}</Text>
+            <Text style={styles.secondaryButtonText}>View History</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -83,9 +124,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    flex: 1,
     padding: 24,
-    justifyContent: 'center',
+    paddingBottom: 36,
   },
   kicker: {
     color: colors.primary,
@@ -118,7 +158,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 24,
     padding: 24,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   percentile: {
     color: colors.primary,
@@ -136,8 +176,99 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 12,
   },
+  sectionCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 19,
+    fontWeight: '800',
+  },
+  sectionSubtitle: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  rankList: {
+    gap: 10,
+  },
+  rankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  userRankRow: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(255, 213, 74, 0.12)',
+  },
+  rankNumber: {
+    color: colors.secondaryText,
+    width: 26,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  rankAvatar: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  rankBody: {
+    flex: 1,
+  },
+  rankName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  rankStatus: {
+    color: colors.mutedText,
+    fontSize: 13,
+    marginTop: 3,
+  },
+  rankTime: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  userRankText: {
+    color: colors.primary,
+  },
+  userRankTime: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  feedList: {
+    gap: 8,
+    marginTop: 12,
+  },
+  feedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  feedBullet: {
+    color: colors.primary,
+    fontSize: 18,
+    width: 18,
+    lineHeight: 20,
+  },
+  feedText: {
+    color: colors.secondaryText,
+    flex: 1,
+    lineHeight: 21,
+  },
   actions: {
     gap: 12,
+    marginTop: 6,
   },
   primaryButton: {
     backgroundColor: colors.primary,
