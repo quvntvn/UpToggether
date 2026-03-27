@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-import { useLanguage } from '@/context/language-context';
+import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
@@ -11,7 +11,6 @@ import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { language, t } = useLanguage();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
   const [results, setResults] = useState<WakeResult[]>([]);
 
@@ -36,8 +35,8 @@ export default function HomeScreen() {
       return null;
     }
 
-    return nextAlarmDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US');
-  }, [language, nextAlarmDate]);
+    return nextAlarmDate.toLocaleDateString('en-US');
+  }, [nextAlarmDate]);
 
   const currentStreak = useMemo(() => getCurrentStreak(results), [results]);
   const bestStreak = useMemo(() => getBestStreak(results), [results]);
@@ -46,66 +45,79 @@ export default function HomeScreen() {
     [results],
   );
 
+  const latestResultSeconds = results.length > 0 ? results[0]?.reactionSeconds ?? 18 : 18;
+  const morningPreview = useMemo(() => buildMorningPreview(latestResultSeconds), [latestResultSeconds]);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.hero}>
-          <Text style={styles.brand}>{t('appName')}</Text>
-          <Text style={styles.slogan}>{t('slogan')}</Text>
+          <Text style={styles.brand}>UpTogether</Text>
+          <Text style={styles.slogan}>Don&apos;t wake up alone.</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('home.nextAlarm')}</Text>
+          <Text style={styles.cardLabel}>Next alarm</Text>
           {alarm?.enabled && nextAlarmDate && formattedAlarmDate ? (
             <>
               <Text style={styles.cardTime}>{alarm.formattedTime}</Text>
-              <Text style={styles.cardInfo}>
-                {t('home.scheduledFor', { date: formattedAlarmDate, time: alarm.formattedTime })}
-              </Text>
+              <Text style={styles.cardInfo}>Scheduled for {formattedAlarmDate} at {alarm.formattedTime}</Text>
             </>
           ) : (
             <>
-              <Text style={styles.placeholderTitle}>{t('home.noAlarmSaved')}</Text>
-              <Text style={styles.cardInfo}>{t('home.emptyAlarmDescription')}</Text>
+              <Text style={styles.placeholderTitle}>No alarm saved yet</Text>
+              <Text style={styles.cardInfo}>Set your first wake-up to keep your mornings on track.</Text>
             </>
           )}
         </View>
 
         <View style={styles.statsCard}>
-          <Text style={styles.cardLabel}>{t('home.statsTitle')}</Text>
+          <Text style={styles.cardLabel}>Your wake stats</Text>
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {results.length > 0 ? `${currentStreak}` : t('home.placeholderValue')}
-              </Text>
-              <Text style={styles.statLabel}>{t('home.currentStreak')}</Text>
+              <Text style={styles.statValue}>{results.length > 0 ? `${currentStreak}` : '--'}</Text>
+              <Text style={styles.statLabel}>Current streak</Text>
             </View>
 
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {results.length > 0 ? `${bestStreak}` : t('home.placeholderValue')}
-              </Text>
-              <Text style={styles.statLabel}>{t('home.bestStreak')}</Text>
+              <Text style={styles.statValue}>{results.length > 0 ? `${bestStreak}` : '--'}</Text>
+              <Text style={styles.statLabel}>Best streak</Text>
             </View>
           </View>
 
           <View style={styles.averageCard}>
-            <Text style={styles.statLabel}>{t('home.averageReaction')}</Text>
+            <Text style={styles.statLabel}>Average reaction time</Text>
             <Text style={styles.averageValue}>
-              {averageReactionSeconds === null
-                ? t('home.noHistoryYet')
-                : formatReactionTime(averageReactionSeconds)}
+              {averageReactionSeconds === null ? 'No wake history yet' : formatReactionTime(averageReactionSeconds)}
             </Text>
           </View>
 
           <Pressable style={styles.historyButton} onPress={() => router.push('/history')}>
-            <Text style={styles.historyButtonText}>{t('home.viewHistory')}</Text>
+            <Text style={styles.historyButtonText}>View History</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.socialPreviewCard}>
+          <Text style={styles.socialTitle}>Morning Crew</Text>
+          <Text style={styles.socialSubtitle}>Today&apos;s mock social check-in.</Text>
+
+          <View style={styles.previewList}>
+            {morningPreview.map((item) => (
+              <View key={item.id} style={styles.previewRow}>
+                <Text style={styles.previewBullet}>•</Text>
+                <Text style={styles.previewText}>{item.message}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Pressable style={styles.previewButton} onPress={() => router.push('/friends')}>
+            <Text style={styles.previewButtonText}>Open Friends</Text>
           </Pressable>
         </View>
 
         <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
-          <Text style={styles.primaryButtonText}>{t('home.setAlarm')}</Text>
+          <Text style={styles.primaryButtonText}>Set Alarm</Text>
         </Pressable>
 
         <Pressable
@@ -116,16 +128,16 @@ export default function HomeScreen() {
               params: { startTime: String(Date.now()) },
             })
           }>
-          <Text style={styles.secondaryButtonText}>{t('home.testWake')}</Text>
+          <Text style={styles.secondaryButtonText}>Test Wake</Text>
         </Pressable>
 
         <View style={styles.rowButtons}>
           <Pressable style={styles.rowButton} onPress={() => router.push('/friends')}>
-            <Text style={styles.rowButtonText}>{t('home.friends')}</Text>
+            <Text style={styles.rowButtonText}>Friends</Text>
           </Pressable>
 
           <Pressable style={styles.rowButton} onPress={() => router.push('/settings')}>
-            <Text style={styles.rowButtonText}>{t('home.settings')}</Text>
+            <Text style={styles.rowButtonText}>Settings</Text>
           </Pressable>
         </View>
 
@@ -137,7 +149,7 @@ export default function HomeScreen() {
               params: { reactionSeconds: '12', percentile: '64' },
             })
           }>
-          <Text style={styles.linkButtonText}>{t('home.previewWakeResult')}</Text>
+          <Text style={styles.linkButtonText}>Preview wake result</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -184,7 +196,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 24,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   cardLabel: {
     color: colors.mutedText,
@@ -257,6 +269,55 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     fontWeight: '700',
+  },
+  socialPreviewCard: {
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 18,
+    marginBottom: 20,
+  },
+  socialTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  socialSubtitle: {
+    color: colors.secondaryText,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  previewList: {
+    marginTop: 12,
+    gap: 8,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  previewBullet: {
+    color: colors.primary,
+    width: 16,
+    fontSize: 18,
+    lineHeight: 20,
+  },
+  previewText: {
+    color: colors.secondaryText,
+    flex: 1,
+    fontSize: 14,
+  },
+  previewButton: {
+    backgroundColor: 'rgba(255, 213, 74, 0.14)',
+    borderRadius: 14,
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  previewButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
   },
   primaryButton: {
     backgroundColor: colors.primary,
