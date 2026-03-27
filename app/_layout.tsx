@@ -87,6 +87,7 @@ export default function RootLayout() {
           <Stack.Screen name="set-alarm" />
           <Stack.Screen name="friends" />
           <Stack.Screen name="group" />
+          <Stack.Screen name="buddy" />
           <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
           <Stack.Screen name="result" />
           <Stack.Screen name="history" />

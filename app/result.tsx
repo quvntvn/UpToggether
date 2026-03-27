@@ -4,6 +4,8 @@ import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'rea
 
 import { useLanguage } from '@/context/language-context';
 import { getQuickMessageLabel, QUICK_MORNING_MESSAGES } from '@/lib/quickMessages';
+import { getDailyWakeBuddy } from '@/lib/mockBuddy';
+import { buildBuddyComparison, buildBuddyFeed } from '@/lib/mockBuddyStatus';
 import { buildMockGroupSnapshot } from '@/lib/mockGroupStatus';
 import { buildMorningFeed, buildTodayRanking } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
@@ -121,6 +123,33 @@ export default function ResultScreen() {
 
   const wakeResultId = Array.isArray(wakeResultIdParam) ? wakeResultIdParam[0] : wakeResultIdParam;
 
+  const todayDate = useMemo(() => new Date(), []);
+  const wakeBuddy = useMemo(() => getDailyWakeBuddy(todayDate), [todayDate]);
+  const buddyComparison = useMemo(
+    () =>
+      buildBuddyComparison({
+        date: todayDate,
+        hasUserWakeResult: reactionSeconds > 0,
+        userReactionSeconds: reactionSeconds,
+      }),
+    [reactionSeconds, todayDate],
+  );
+  const buddyFeed = useMemo(() => {
+    const latestReactionLine = selectedQuickMessageId
+      ? getQuickMessageLabel(
+          QUICK_MORNING_MESSAGES.find((message) => message.id === selectedQuickMessageId) ?? QUICK_MORNING_MESSAGES[0],
+          language,
+        )
+      : null;
+
+    return buildBuddyFeed({
+      date: todayDate,
+      hasUserWakeResult: reactionSeconds > 0,
+      userReactionSeconds: reactionSeconds,
+      latestReactionLine,
+    });
+  }, [language, reactionSeconds, selectedQuickMessageId, todayDate]);
+
   const handleQuickReactionPress = async (quickMessageId: string) => {
     const selectedMessage = QUICK_MORNING_MESSAGES.find((message) => message.id === quickMessageId);
 
@@ -203,6 +232,38 @@ export default function ResultScreen() {
           <Text style={styles.groupStreakText}>
             Group streak: {morningSquad.streakDays} days · {morningSquad.streakRule}
           </Text>
+        </View>
+
+
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Buddy battle</Text>
+          {buddyComparison ? (
+            <>
+              <View style={styles.buddyRow}>
+                <Text style={styles.buddyLabel}>You</Text>
+                <Text style={styles.buddyValue}>{formatReactionTime(buddyComparison.userReactionSeconds)}</Text>
+              </View>
+              <View style={styles.buddyRow}>
+                <Text style={styles.buddyLabel}>{wakeBuddy.name}</Text>
+                <Text style={styles.buddyValue}>{formatReactionTime(buddyComparison.buddyReactionSeconds)}</Text>
+              </View>
+              <Text style={styles.buddySummary}>Result: {buddyComparison.summary}</Text>
+            </>
+          ) : (
+            <Text style={styles.sectionSubtitle}>Buddy comparison will appear after your wake result.</Text>
+          )}
+
+          <View style={styles.feedList}>
+            {buddyFeed.slice(0, 2).map((item) => (
+              <View key={item.id} style={styles.feedRow}>
+                <Text style={styles.feedBullet}>•</Text>
+                <Text style={styles.feedText}>
+                  {item.author}: {item.message}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={styles.sectionCard}>
@@ -391,6 +452,35 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     flex: 1,
     lineHeight: 21,
+  },
+
+  buddyRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  buddyLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  buddyValue: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  buddySummary: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 12,
   },
   groupStreakText: {
     color: colors.primary,
