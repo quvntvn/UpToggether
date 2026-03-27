@@ -2,9 +2,12 @@ import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { buildMockFriendReactions } from '@/lib/mockReactions';
 import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
 import { colors } from '@/lib/theme';
+import { getReactionsForDate } from '@/storage/reactionsStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
+import type { SavedReaction } from '@/types/reaction';
 import { formatReactionTime } from '@/utils/time';
 
 function toOrdinal(value: number) {
@@ -25,10 +28,12 @@ function toOrdinal(value: number) {
 
 export default function GroupScreen() {
   const [results, setResults] = useState<WakeResult[]>([]);
+  const [todayReactions, setTodayReactions] = useState<SavedReaction[]>([]);
 
   const loadResults = useCallback(async () => {
-    const savedResults = await getWakeResults();
+    const [savedResults, reactions] = await Promise.all([getWakeResults(), getReactionsForDate(new Date())]);
     setResults(savedResults);
+    setTodayReactions(reactions);
   }, []);
 
   useFocusEffect(
@@ -50,6 +55,25 @@ export default function GroupScreen() {
       }),
     [todaysWakeResult],
   );
+  const latestUserReaction = todayReactions[0] ?? null;
+  const friendReactions = useMemo(() => buildMockFriendReactions(new Date()), []);
+  const mixedFeed = useMemo(() => {
+    const userReactionFeedItem = latestUserReaction
+      ? [
+          {
+            id: `user-reaction-${latestUserReaction.id}`,
+            message: `You: ${latestUserReaction.text} ${latestUserReaction.emoji}`,
+          },
+        ]
+      : [];
+
+    const friendReactionFeedItems = friendReactions.map((reaction) => ({
+      id: reaction.id,
+      message: `${reaction.name}: ${reaction.message}${reaction.emoji ? ` ${reaction.emoji}` : ''}`,
+    }));
+
+    return [...userReactionFeedItem, ...friendReactionFeedItems, ...snapshot.feed];
+  }, [friendReactions, latestUserReaction, snapshot.feed]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,8 +116,9 @@ export default function GroupScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Squad feed</Text>
+          <Text style={styles.sectionSubtitle}>Local mock activity from your morning crew.</Text>
           <View style={styles.feedList}>
-            {snapshot.feed.map((item) => (
+            {mixedFeed.map((item) => (
               <View key={item.id} style={styles.feedRow}>
                 <Text style={styles.feedBullet}>•</Text>
                 <Text style={styles.feedText}>{item.message}</Text>

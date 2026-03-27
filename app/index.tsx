@@ -4,10 +4,13 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
+import { buildMockFriendReactions } from '@/lib/mockReactions';
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
+import { getLatestReaction } from '@/storage/reactionsStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
+import type { SavedReaction } from '@/types/reaction';
 import { getBestStreak, getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
 
@@ -33,11 +36,17 @@ export default function HomeScreen() {
   const { height: windowHeight } = useWindowDimensions();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
   const [results, setResults] = useState<WakeResult[]>([]);
+  const [latestReaction, setLatestReaction] = useState<SavedReaction | null>(null);
 
   const loadData = useCallback(async () => {
-    const [savedAlarm, savedResults] = await Promise.all([getSavedAlarm(), getWakeResults()]);
+    const [savedAlarm, savedResults, savedLatestReaction] = await Promise.all([
+      getSavedAlarm(),
+      getWakeResults(),
+      getLatestReaction(),
+    ]);
     setAlarm(savedAlarm);
     setResults(savedResults);
+    setLatestReaction(savedLatestReaction);
   }, []);
 
   useFocusEffect(
@@ -81,6 +90,19 @@ export default function HomeScreen() {
   );
   const userGroupStatus = morningSquadSnapshot.members.find((member) => member.isUser);
   const topStatuses = morningSquadSnapshot.members.filter((member) => !member.isUser).slice(0, 2);
+  const friendReactions = useMemo(() => buildMockFriendReactions(new Date()), []);
+  const socialPreviewFeed = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const userReactionLine =
+      latestReaction && latestReaction.relatedDate === todayKey
+        ? `You: ${latestReaction.text} ${latestReaction.emoji}`
+        : null;
+    const friendLine = friendReactions[0]
+      ? `${friendReactions[0].name}: ${friendReactions[0].message}${friendReactions[0].emoji ? ` ${friendReactions[0].emoji}` : ''}`
+      : null;
+
+    return [userReactionLine, friendLine].filter((item): item is string => Boolean(item));
+  }, [friendReactions, latestReaction]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -169,13 +191,13 @@ export default function HomeScreen() {
 
           <View style={styles.socialPreviewCard}>
             <Text style={styles.socialTitle}>Morning Crew</Text>
-            <Text style={styles.socialSubtitle}>Today&apos;s mock social check-in.</Text>
+            <Text style={styles.socialSubtitle}>Today&apos;s mock social check-in and quick reactions.</Text>
 
             <View style={styles.previewList}>
-              {morningPreview.map((item) => (
-                <View key={item.id} style={styles.previewRow}>
+              {(socialPreviewFeed.length > 0 ? socialPreviewFeed : morningPreview.map((item) => item.message)).map((line, index) => (
+                <View key={`social-line-${index}`} style={styles.previewRow}>
                   <Text style={styles.previewBullet}>•</Text>
-                  <Text style={styles.previewText}>{item.message}</Text>
+                  <Text style={styles.previewText}>{line}</Text>
                 </View>
               ))}
             </View>
