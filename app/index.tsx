@@ -3,6 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getDailyWakeBuddy } from '@/lib/mockBuddy';
+import { buildBuddyStatus } from '@/lib/mockBuddyStatus';
 import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
 import { buildMockFriendReactions } from '@/lib/mockReactions';
 import { buildMorningPreview } from '@/lib/mockRanking';
@@ -91,6 +93,17 @@ export default function HomeScreen() {
   const userGroupStatus = morningSquadSnapshot.members.find((member) => member.isUser);
   const topStatuses = morningSquadSnapshot.members.filter((member) => !member.isUser).slice(0, 2);
   const friendReactions = useMemo(() => buildMockFriendReactions(new Date()), []);
+  const wakeBuddy = useMemo(() => getDailyWakeBuddy(new Date()), []);
+  const buddyStatus = useMemo(
+    () =>
+      buildBuddyStatus({
+        hasUserWakeResult: Boolean(todaysWakeResult),
+        userReactionSeconds: todaysWakeResult?.reactionSeconds,
+        userSnoozeCount: todaysWakeResult?.snoozeCount ?? 0,
+      }),
+    [todaysWakeResult],
+  );
+
   const socialPreviewFeed = useMemo(() => {
     const todayKey = new Date().toISOString().slice(0, 10);
     const userReactionLine =
@@ -206,6 +219,23 @@ export default function HomeScreen() {
               <Text style={styles.previewButtonText}>Open Friends</Text>
             </Pressable>
           </View>
+
+
+
+          <Pressable style={styles.buddyCard} onPress={() => router.push('/buddy')}>
+            <View style={styles.buddyHeader}>
+              <View>
+                <Text style={styles.buddyTitle}>Wake Buddy</Text>
+                <Text style={styles.buddyName}>{wakeBuddy.name}</Text>
+              </View>
+              <Text style={styles.buddyAvatar}>{wakeBuddy.avatar}</Text>
+            </View>
+            <Text style={styles.buddyStatus}>{buddyStatus.shortLabel}</Text>
+            <Text style={styles.buddyHint}>{buddyStatus.accountabilityText}</Text>
+            <View style={styles.buddyButton}>
+              <Text style={styles.buddyButtonText}>Open Buddy</Text>
+            </View>
+          </Pressable>
 
           <Pressable style={styles.groupCard} onPress={() => router.push('/group')}>
             <View style={styles.groupHeader}>
@@ -416,6 +446,61 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   previewButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  buddyCard: {
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 18,
+    marginBottom: 20,
+  },
+  buddyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  buddyTitle: {
+    color: colors.mutedText,
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  buddyName: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  buddyAvatar: {
+    fontSize: 30,
+  },
+  buddyStatus: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 12,
+  },
+  buddyHint: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    marginTop: 6,
+  },
+  buddyButton: {
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(255, 213, 74, 0.14)',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  buddyButtonText: {
     color: colors.primary,
     fontSize: 14,
     fontWeight: '800',
