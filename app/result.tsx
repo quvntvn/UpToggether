@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { buildMockGroupSnapshot } from '@/lib/mockGroupStatus';
 import { buildMorningFeed, buildTodayRanking } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { formatReactionTime, getMockPercentile } from '@/utils/time';
@@ -29,6 +30,22 @@ function formatReactionMilliseconds(milliseconds: number) {
   return `${formatReactionTime(seconds)} ${String(centiseconds).padStart(2, '0')}cs`;
 }
 
+function toOrdinal(value: number) {
+  if (value % 10 === 1 && value % 100 !== 11) {
+    return `${value}st`;
+  }
+
+  if (value % 10 === 2 && value % 100 !== 12) {
+    return `${value}nd`;
+  }
+
+  if (value % 10 === 3 && value % 100 !== 13) {
+    return `${value}rd`;
+  }
+
+  return `${value}th`;
+}
+
 export default function ResultScreen() {
   const router = useRouter();
   const {
@@ -49,6 +66,14 @@ export default function ResultScreen() {
 
   const ranking = useMemo(() => buildTodayRanking(reactionSeconds), [reactionSeconds]);
   const feed = useMemo(() => buildMorningFeed(ranking), [ranking]);
+  const morningSquad = useMemo(
+    () =>
+      buildMockGroupSnapshot({
+        userReactionSeconds: reactionSeconds,
+        hasUserWakeResult: reactionSeconds > 0,
+      }),
+    [reactionSeconds],
+  );
 
   const userRank = ranking.find((entry) => entry.isUser)?.rank ?? ranking.length;
   const friendCount = Math.max(0, ranking.length - 1);
@@ -102,6 +127,14 @@ export default function ResultScreen() {
               </View>
             ))}
           </View>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Morning Squad</Text>
+          <Text style={styles.sectionSubtitle}>You finished {toOrdinal(morningSquad.userPosition)} in {morningSquad.groupName}</Text>
+          <Text style={styles.groupStreakText}>
+            Group streak: {morningSquad.streakDays} days · {morningSquad.streakRule}
+          </Text>
         </View>
 
         <View style={styles.actions}>
@@ -265,6 +298,12 @@ const styles = StyleSheet.create({
     color: colors.secondaryText,
     flex: 1,
     lineHeight: 21,
+  },
+  groupStreakText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
   },
   actions: {
     gap: 12,
