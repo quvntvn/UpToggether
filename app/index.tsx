@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
@@ -50,108 +51,113 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.hero}>
-          <Text style={styles.brand}>UpTogether</Text>
-          <Text style={styles.slogan}>Don&apos;t wake up alone.</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Next alarm</Text>
-          {alarm?.enabled && nextAlarmDate && formattedAlarmDate ? (
-            <>
-              <Text style={styles.cardTime}>{alarm.formattedTime}</Text>
-              <Text style={styles.cardInfo}>Scheduled for {formattedAlarmDate} at {alarm.formattedTime}</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.placeholderTitle}>No alarm saved yet</Text>
-              <Text style={styles.cardInfo}>Set your first wake-up to keep your mornings on track.</Text>
-            </>
-          )}
-        </View>
-
-        <View style={styles.statsCard}>
-          <Text style={styles.cardLabel}>Your wake stats</Text>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{results.length > 0 ? `${currentStreak}` : '--'}</Text>
-              <Text style={styles.statLabel}>Current streak</Text>
-            </View>
-
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{results.length > 0 ? `${bestStreak}` : '--'}</Text>
-              <Text style={styles.statLabel}>Best streak</Text>
-            </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}>
+        <View style={styles.content}>
+          <View style={styles.hero}>
+            <Text style={styles.brand}>UpTogether</Text>
+            <Text style={styles.slogan}>Don&apos;t wake up alone.</Text>
           </View>
 
-          <View style={styles.averageCard}>
-            <Text style={styles.statLabel}>Average reaction time</Text>
-            <Text style={styles.averageValue}>
-              {averageReactionSeconds === null ? 'No wake history yet' : formatReactionTime(averageReactionSeconds)}
-            </Text>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Next alarm</Text>
+            {alarm?.enabled && nextAlarmDate && formattedAlarmDate ? (
+              <>
+                <Text style={styles.cardTime}>{alarm.formattedTime}</Text>
+                <Text style={styles.cardInfo}>Scheduled for {formattedAlarmDate} at {alarm.formattedTime}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.placeholderTitle}>No alarm saved yet</Text>
+                <Text style={styles.cardInfo}>Set your first wake-up to keep your mornings on track.</Text>
+              </>
+            )}
           </View>
 
-          <Pressable style={styles.historyButton} onPress={() => router.push('/history')}>
-            <Text style={styles.historyButtonText}>View History</Text>
-          </Pressable>
-        </View>
+          <View style={styles.statsCard}>
+            <Text style={styles.cardLabel}>Your wake stats</Text>
 
-        <View style={styles.socialPreviewCard}>
-          <Text style={styles.socialTitle}>Morning Crew</Text>
-          <Text style={styles.socialSubtitle}>Today&apos;s mock social check-in.</Text>
-
-          <View style={styles.previewList}>
-            {morningPreview.map((item) => (
-              <View key={item.id} style={styles.previewRow}>
-                <Text style={styles.previewBullet}>•</Text>
-                <Text style={styles.previewText}>{item.message}</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{results.length > 0 ? `${currentStreak}` : '--'}</Text>
+                <Text style={styles.statLabel}>Current streak</Text>
               </View>
-            ))}
+
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{results.length > 0 ? `${bestStreak}` : '--'}</Text>
+                <Text style={styles.statLabel}>Best streak</Text>
+              </View>
+            </View>
+
+            <View style={styles.averageCard}>
+              <Text style={styles.statLabel}>Average reaction time</Text>
+              <Text style={styles.averageValue}>
+                {averageReactionSeconds === null ? 'No wake history yet' : formatReactionTime(averageReactionSeconds)}
+              </Text>
+            </View>
+
+            <Pressable style={styles.historyButton} onPress={() => router.push('/history')}>
+              <Text style={styles.historyButtonText}>View History</Text>
+            </Pressable>
           </View>
 
-          <Pressable style={styles.previewButton} onPress={() => router.push('/friends')}>
-            <Text style={styles.previewButtonText}>Open Friends</Text>
+          <View style={styles.socialPreviewCard}>
+            <Text style={styles.socialTitle}>Morning Crew</Text>
+            <Text style={styles.socialSubtitle}>Today&apos;s mock social check-in.</Text>
+
+            <View style={styles.previewList}>
+              {morningPreview.map((item) => (
+                <View key={item.id} style={styles.previewRow}>
+                  <Text style={styles.previewBullet}>•</Text>
+                  <Text style={styles.previewText}>{item.message}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Pressable style={styles.previewButton} onPress={() => router.push('/friends')}>
+              <Text style={styles.previewButtonText}>Open Friends</Text>
+            </Pressable>
+          </View>
+
+          <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
+            <Text style={styles.primaryButtonText}>Set Alarm</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() =>
+              router.push({
+                pathname: '/wake',
+                params: { startTime: String(Date.now()) },
+              })
+            }>
+            <Text style={styles.secondaryButtonText}>Test Wake</Text>
+          </Pressable>
+
+          <View style={styles.rowButtons}>
+            <Pressable style={styles.rowButton} onPress={() => router.push('/friends')}>
+              <Text style={styles.rowButtonText}>Friends</Text>
+            </Pressable>
+
+            <Pressable style={styles.rowButton} onPress={() => router.push('/settings')}>
+              <Text style={styles.rowButtonText}>Settings</Text>
+            </Pressable>
+          </View>
+
+          <Pressable
+            style={styles.linkButton}
+            onPress={() =>
+              router.push({
+                pathname: '/result',
+                params: { reactionSeconds: '12', percentile: '64' },
+              })
+            }>
+            <Text style={styles.linkButtonText}>Preview wake result</Text>
           </Pressable>
         </View>
-
-        <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
-          <Text style={styles.primaryButtonText}>Set Alarm</Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() =>
-            router.push({
-              pathname: '/wake',
-              params: { startTime: String(Date.now()) },
-            })
-          }>
-          <Text style={styles.secondaryButtonText}>Test Wake</Text>
-        </Pressable>
-
-        <View style={styles.rowButtons}>
-          <Pressable style={styles.rowButton} onPress={() => router.push('/friends')}>
-            <Text style={styles.rowButtonText}>Friends</Text>
-          </Pressable>
-
-          <Pressable style={styles.rowButton} onPress={() => router.push('/settings')}>
-            <Text style={styles.rowButtonText}>Settings</Text>
-          </Pressable>
-        </View>
-
-        <Pressable
-          style={styles.linkButton}
-          onPress={() =>
-            router.push({
-              pathname: '/result',
-              params: { reactionSeconds: '12', percentile: '64' },
-            })
-          }>
-          <Text style={styles.linkButtonText}>Preview wake result</Text>
-        </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -161,11 +167,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 32,
-    justifyContent: 'center',
+    paddingTop: 16,
+    paddingBottom: 28,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   hero: {
     marginBottom: 32,
