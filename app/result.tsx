@@ -1,10 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
+import { getQuickMessageLabel, QUICK_MORNING_MESSAGES } from '@/lib/quickMessages';
 import { buildMockGroupSnapshot } from '@/lib/mockGroupStatus';
 import { buildMorningFeed, buildTodayRanking } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
+import { getLatestReaction, saveReaction } from '@/storage/reactionsStorage';
 import { formatReactionTime, getMockPercentile } from '@/utils/time';
 
 function getNumberParam(value: string | string[] | undefined) {
@@ -48,16 +51,19 @@ function toOrdinal(value: number) {
 
 export default function ResultScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
   const {
     reactionSeconds: reactionSecondsParam,
     reactionTime: reactionTimeParam,
     percentile: percentileParam,
     saved: savedParam,
+    wakeResultId: wakeResultIdParam,
   } = useLocalSearchParams<{
     reactionSeconds?: string;
     reactionTime?: string;
     percentile?: string;
     saved?: string;
+    wakeResultId?: string;
   }>();
   const reactionSeconds = Math.floor(getNumberParam(reactionSecondsParam));
   const reactionTime = Math.floor(getNumberParam(reactionTimeParam));
@@ -77,6 +83,68 @@ export default function ResultScreen() {
 
   const userRank = ranking.find((entry) => entry.isUser)?.rank ?? ranking.length;
   const friendCount = Math.max(0, ranking.length - 1);
+  const [selectedQuickMessageId, setSelectedQuickMessageId] = useState<string | null>(null);
+  const [hasSentQuickMessage, setHasSentQuickMessage] = useState(false);
+
+  useEffect(() => {
+    async function loadLatestReaction() {
+      const latestReaction = await getLatestReaction();
+      const todayKey = new Date().toISOString().slice(0, 10);
+
+      if (!latestReaction || latestReaction.relatedDate !== todayKey) {
+        return;
+      }
+
+      setSelectedQuickMessageId(latestReaction.quickMessageId);
+      setHasSentQuickMessage(true);
+    }
+
+    void loadLatestReaction();
+  }, []);
+
+  const quickMessages = useMemo(
+    () =>
+      QUICK_MORNING_MESSAGES.map((message) => ({
+        ...message,
+        localizedLabel: getQuickMessageLabel(message, language),
+      })),
+    [language],
+  );
+
+  const quickReactionsTitle = language === 'fr' ? 'Réactions rapides' : 'Quick reactions';
+  const quickReactionsSubtitle =
+    language === 'fr'
+      ? 'Partage une vibe du matin avec ta team (simulation locale).'
+      : 'Share your morning vibe with your crew (local mock only).';
+  const quickReactionsConfirmation =
+    language === 'fr' ? 'Message envoyé à Morning Squad.' : 'Message sent to Morning Squad.';
+
+  const wakeResultId = Array.isArray(wakeResultIdParam) ? wakeResultIdParam[0] : wakeResultIdParam;
+
+  const handleQuickReactionPress = async (quickMessageId: string) => {
+    const selectedMessage = QUICK_MORNING_MESSAGES.find((message) => message.id === quickMessageId);
+
+    if (!selectedMessage) {
+      return;
+    }
+
+    const now = new Date();
+    const reactionId = `${now.getTime()}-${quickMessageId}`;
+
+    await saveReaction({
+      id: reactionId,
+      quickMessageId: selectedMessage.id,
+      text: getQuickMessageLabel(selectedMessage, language),
+      emoji: selectedMessage.emoji,
+      createdAt: now.toISOString(),
+      relatedDate: now.toISOString().slice(0, 10),
+      relatedWakeResultId: wakeResultId,
+      targetGroupId: 'morning-squad',
+    });
+
+    setSelectedQuickMessageId(quickMessageId);
+    setHasSentQuickMessage(true);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -135,6 +203,31 @@ export default function ResultScreen() {
           <Text style={styles.groupStreakText}>
             Group streak: {morningSquad.streakDays} days · {morningSquad.streakRule}
           </Text>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>{quickReactionsTitle}</Text>
+          <Text style={styles.sectionSubtitle}>{quickReactionsSubtitle}</Text>
+          <View style={styles.quickMessagesWrap}>
+            {quickMessages.map((message) => {
+              const isSelected = selectedQuickMessageId === message.id;
+
+              return (
+                <Pressable
+                  key={message.id}
+                  style={[styles.quickMessageChip, isSelected ? styles.quickMessageChipSelected : null]}
+                  onPress={() => {
+                    void handleQuickReactionPress(message.id);
+                  }}>
+                  <Text style={styles.quickMessageEmoji}>{message.emoji}</Text>
+                  <Text style={[styles.quickMessageText, isSelected ? styles.quickMessageTextSelected : null]}>
+                    {message.localizedLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {hasSentQuickMessage ? <Text style={styles.quickReactionConfirmation}>{quickReactionsConfirmation}</Text> : null}
         </View>
 
         <View style={styles.actions}>
@@ -304,6 +397,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     lineHeight: 20,
+  },
+  quickMessagesWrap: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quickMessageChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickMessageChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(255, 213, 74, 0.15)',
+  },
+  quickMessageEmoji: {
+    fontSize: 16,
+  },
+  quickMessageText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickMessageTextSelected: {
+    color: colors.primary,
+  },
+  quickReactionConfirmation: {
+    marginTop: 12,
+    color: colors.success,
+    fontSize: 13,
+    fontWeight: '700',
   },
   actions: {
     gap: 12,
