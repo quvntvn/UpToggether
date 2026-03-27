@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
@@ -12,6 +12,8 @@ import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
   const [results, setResults] = useState<WakeResult[]>([]);
 
@@ -52,9 +54,15 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={false}>
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            minHeight: windowHeight - insets.top - insets.bottom,
+            paddingBottom: insets.bottom + 28,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <View style={styles.hero}>
             <Text style={styles.brand}>UpTogether</Text>
@@ -74,6 +82,31 @@ export default function HomeScreen() {
                 <Text style={styles.cardInfo}>Set your first wake-up to keep your mornings on track.</Text>
               </>
             )}
+          </View>
+
+          <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
+            <Text style={styles.primaryButtonText}>Set Alarm</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() =>
+              router.push({
+                pathname: '/wake',
+                params: { startTime: String(Date.now()) },
+              })
+            }>
+            <Text style={styles.secondaryButtonText}>Test Wake</Text>
+          </Pressable>
+
+          <View style={styles.rowButtons}>
+            <Pressable style={styles.rowButton} onPress={() => router.push('/friends')}>
+              <Text style={styles.rowButtonText}>Friends</Text>
+            </Pressable>
+
+            <Pressable style={styles.rowButton} onPress={() => router.push('/settings')}>
+              <Text style={styles.rowButtonText}>Settings</Text>
+            </Pressable>
           </View>
 
           <View style={styles.statsCard}>
@@ -121,31 +154,6 @@ export default function HomeScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
-            <Text style={styles.primaryButtonText}>Set Alarm</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={() =>
-              router.push({
-                pathname: '/wake',
-                params: { startTime: String(Date.now()) },
-              })
-            }>
-            <Text style={styles.secondaryButtonText}>Test Wake</Text>
-          </Pressable>
-
-          <View style={styles.rowButtons}>
-            <Pressable style={styles.rowButton} onPress={() => router.push('/friends')}>
-              <Text style={styles.rowButtonText}>Friends</Text>
-            </Pressable>
-
-            <Pressable style={styles.rowButton} onPress={() => router.push('/settings')}>
-              <Text style={styles.rowButtonText}>Settings</Text>
-            </Pressable>
-          </View>
-
           <Pressable
             style={styles.linkButton}
             onPress={() =>
@@ -171,7 +179,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 28,
   },
   content: {
     width: '100%',
