@@ -10,8 +10,10 @@ import { buildMockFriendReactions } from '@/lib/mockReactions';
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
+import { getActiveContract, getContractHistory } from '@/storage/contractsStorage';
 import { getLatestReaction } from '@/storage/reactionsStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
+import type { ActiveWakeContract } from '@/types/contracts';
 import type { SavedReaction } from '@/types/reaction';
 import { getBestStreak, getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
@@ -39,16 +41,22 @@ export default function HomeScreen() {
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
   const [results, setResults] = useState<WakeResult[]>([]);
   const [latestReaction, setLatestReaction] = useState<SavedReaction | null>(null);
+  const [activeContract, setActiveContract] = useState<ActiveWakeContract | null>(null);
+  const [latestContractOutcome, setLatestContractOutcome] = useState<ActiveWakeContract | null>(null);
 
   const loadData = useCallback(async () => {
-    const [savedAlarm, savedResults, savedLatestReaction] = await Promise.all([
+    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory] = await Promise.all([
       getSavedAlarm(),
       getWakeResults(),
       getLatestReaction(),
+      getActiveContract(),
+      getContractHistory(),
     ]);
     setAlarm(savedAlarm);
     setResults(savedResults);
     setLatestReaction(savedLatestReaction);
+    setActiveContract(savedActiveContract);
+    setLatestContractOutcome(contractHistory[0] ?? null);
   }, []);
 
   useFocusEffect(
@@ -117,6 +125,22 @@ export default function HomeScreen() {
     return [userReactionLine, friendLine].filter((item): item is string => Boolean(item));
   }, [friendReactions, latestReaction]);
 
+  const activeContractStatusLabel = useMemo(() => {
+    if (!activeContract) {
+      return 'No active contract';
+    }
+
+    if (activeContract.status === 'completed') {
+      return 'Completed ✅';
+    }
+
+    if (activeContract.status === 'failed') {
+      return 'Failed ❌';
+    }
+
+    return 'Active ⏳';
+  }, [activeContract]);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -174,6 +198,31 @@ export default function HomeScreen() {
               <Text style={styles.rowButtonText}>Settings</Text>
             </Pressable>
           </View>
+
+          <Pressable style={styles.contractCard} onPress={() => router.push('/contracts')}>
+            <View style={styles.contractHeader}>
+              <Text style={styles.contractKicker}>Wake Contract</Text>
+              <Text style={styles.contractLink}>Open</Text>
+            </View>
+            {activeContract ? (
+              <>
+                <Text style={styles.contractTitle}>{activeContract.title}</Text>
+                <Text style={styles.contractDetail}>Target: {new Date(activeContract.targetDate).toLocaleDateString('en-US')}</Text>
+                <Text style={styles.contractStatus}>Status: {activeContractStatusLabel}</Text>
+                {activeContract.progress?.note ? <Text style={styles.contractDetail}>{activeContract.progress.note}</Text> : null}
+              </>
+            ) : (
+              <>
+                <Text style={styles.contractTitle}>Set a wake contract</Text>
+                <Text style={styles.contractDetail}>Choose one promise for tomorrow and stay accountable.</Text>
+              </>
+            )}
+            {!activeContract && latestContractOutcome ? (
+              <Text style={styles.contractHistoryNote}>
+                Last outcome: {latestContractOutcome.title} ({latestContractOutcome.status})
+              </Text>
+            ) : null}
+          </Pressable>
 
           <View style={styles.statsCard}>
             <Text style={styles.cardLabel}>Your wake stats</Text>
@@ -328,6 +377,54 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 24,
     marginBottom: 16,
+  },
+  contractCard: {
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    padding: 18,
+    marginTop: 14,
+    marginBottom: 16,
+  },
+  contractHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  contractKicker: {
+    color: colors.mutedText,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  contractLink: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  contractTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  contractDetail: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    marginTop: 6,
+  },
+  contractStatus: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  contractHistoryNote: {
+    color: colors.mutedText,
+    fontSize: 12,
+    marginTop: 10,
   },
   cardLabel: {
     color: colors.mutedText,

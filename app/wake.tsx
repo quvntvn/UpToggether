@@ -105,6 +105,7 @@ export default function WakeScreen() {
         reactionTime: String(reactionTime),
         percentile: String(percentile),
         saved: 'true',
+        wakeResultId: resultId,
       },
     });
   };
