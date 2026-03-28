@@ -3,13 +3,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useLanguage } from '@/context/language-context';
+import { didUserBeatBuddy, evaluateWakeContract } from '@/lib/contracts';
 import { getQuickMessageLabel, QUICK_MORNING_MESSAGES } from '@/lib/quickMessages';
 import { getDailyWakeBuddy } from '@/lib/mockBuddy';
 import { buildBuddyComparison, buildBuddyFeed } from '@/lib/mockBuddyStatus';
 import { buildMockGroupSnapshot } from '@/lib/mockGroupStatus';
 import { buildMorningFeed, buildTodayRanking } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
+import {
+  completeContract,
+  failContract,
+  getActiveContract,
+  updateContractProgress,
+} from '@/storage/contractsStorage';
 import { getLatestReaction, saveReaction } from '@/storage/reactionsStorage';
+import { getWakeResults } from '@/storage/wakeResultsStorage';
+import type { ActiveWakeContract, WakeContractStatus } from '@/types/contracts';
+import { getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getMockPercentile } from '@/utils/time';
 
 function getNumberParam(value: string | string[] | undefined) {
@@ -85,8 +95,12 @@ export default function ResultScreen() {
 
   const userRank = ranking.find((entry) => entry.isUser)?.rank ?? ranking.length;
   const friendCount = Math.max(0, ranking.length - 1);
+  const todayDate = useMemo(() => new Date(), []);
   const [selectedQuickMessageId, setSelectedQuickMessageId] = useState<string | null>(null);
   const [hasSentQuickMessage, setHasSentQuickMessage] = useState(false);
+  const [activeContract, setActiveContract] = useState<ActiveWakeContract | null>(null);
+  const [contractMessage, setContractMessage] = useState<string | null>(null);
+  const [contractStatus, setContractStatus] = useState<WakeContractStatus | null>(null);
 
   useEffect(() => {
     async function loadLatestReaction() {
@@ -104,6 +118,45 @@ export default function ResultScreen() {
     void loadLatestReaction();
   }, []);
 
+  useEffect(() => {
+    async function evaluateContractForWakeResult() {
+      const currentActiveContract = await getActiveContract();
+      setActiveContract(currentActiveContract);
+
+      if (!currentActiveContract || reactionSeconds <= 0) {
+        return;
+      }
+
+      const wakeResults = await getWakeResults();
+      const currentStreak = getCurrentStreak(wakeResults);
+      const buddyWon = didUserBeatBuddy(reactionSeconds, todayDate);
+      const evaluation = evaluateWakeContract(currentActiveContract, {
+        stoppedAt: todayDate.toISOString(),
+        scheduledTime: undefined,
+        reactionSeconds,
+        snoozeCount: 0,
+        currentStreak,
+        buddyWon,
+      });
+
+      if (evaluation.status === 'completed') {
+        const updatedContract = await completeContract(evaluation.summary, evaluation.progress);
+        setActiveContract(updatedContract ?? currentActiveContract);
+      } else if (evaluation.status === 'failed') {
+        const updatedContract = await failContract(evaluation.summary, evaluation.progress);
+        setActiveContract(updatedContract ?? currentActiveContract);
+      } else {
+        const updatedContract = await updateContractProgress(evaluation.summary, evaluation.progress);
+        setActiveContract(updatedContract ?? currentActiveContract);
+      }
+
+      setContractStatus(evaluation.status);
+      setContractMessage(evaluation.summary);
+    }
+
+    void evaluateContractForWakeResult();
+  }, [reactionSeconds, todayDate]);
+
   const quickMessages = useMemo(
     () =>
       QUICK_MORNING_MESSAGES.map((message) => ({
@@ -120,10 +173,9 @@ export default function ResultScreen() {
       : 'Share your morning vibe with your crew (local mock only).';
   const quickReactionsConfirmation =
     language === 'fr' ? 'Message envoyé à Morning Squad.' : 'Message sent to Morning Squad.';
+  const contractTitle = language === 'fr' ? 'Wake Contract' : 'Wake Contract';
 
   const wakeResultId = Array.isArray(wakeResultIdParam) ? wakeResultIdParam[0] : wakeResultIdParam;
-
-  const todayDate = useMemo(() => new Date(), []);
   const wakeBuddy = useMemo(() => getDailyWakeBuddy(todayDate), [todayDate]);
   const buddyComparison = useMemo(
     () =>
@@ -190,6 +242,31 @@ export default function ResultScreen() {
           <Text style={styles.helper}>Faster than {percentile}% of users</Text>
           {wasSaved ? <Text style={styles.savedText}>Saved to your history.</Text> : null}
         </View>
+
+        {activeContract ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>{contractTitle}</Text>
+            <Text style={styles.contractResultTitle}>{activeContract.title}</Text>
+            <Text
+              style={[
+                styles.contractResultStatus,
+                contractStatus === 'completed'
+                  ? styles.contractStatusCompleted
+                  : contractStatus === 'failed'
+                    ? styles.contractStatusFailed
+                    : styles.contractStatusActive,
+              ]}>
+              {contractStatus === 'completed'
+                ? 'Contract completed ✅'
+                : contractStatus === 'failed'
+                  ? 'Contract failed ❌'
+                  : 'Contract still active ⏳'}
+            </Text>
+            <Text style={styles.sectionSubtitle}>
+              {contractMessage ?? activeContract.progress?.note ?? 'Still active: keep going tomorrow.'}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Today&apos;s ranking</Text>
@@ -362,6 +439,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginTop: 12,
+  },
+  contractResultTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  contractResultStatus: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+  contractStatusCompleted: {
+    color: colors.success,
+  },
+  contractStatusFailed: {
+    color: '#EF4444',
+  },
+  contractStatusActive: {
+    color: colors.primary,
   },
   sectionCard: {
     backgroundColor: colors.card,
