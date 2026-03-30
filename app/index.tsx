@@ -8,10 +8,13 @@ import { buildBuddyStatus } from '@/lib/mockBuddyStatus';
 import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
 import { buildMockFriendReactions } from '@/lib/mockReactions';
 import { buildMorningPreview } from '@/lib/mockRanking';
+import { getOnboardingGoals } from '@/lib/onboardingGoals';
 import { colors } from '@/lib/theme';
+import { useLanguage } from '@/context/language-context';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
 import { getActiveContract, getContractHistory } from '@/storage/contractsStorage';
 import { getLatestReaction } from '@/storage/reactionsStorage';
+import { getUserProfile } from '@/storage/profileStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
 import type { ActiveWakeContract } from '@/types/contracts';
 import type { SavedReaction } from '@/types/reaction';
@@ -36,6 +39,7 @@ function toOrdinal(value: number) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
@@ -43,21 +47,35 @@ export default function HomeScreen() {
   const [latestReaction, setLatestReaction] = useState<SavedReaction | null>(null);
   const [activeContract, setActiveContract] = useState<ActiveWakeContract | null>(null);
   const [latestContractOutcome, setLatestContractOutcome] = useState<ActiveWakeContract | null>(null);
+  const [goalHelperText, setGoalHelperText] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>('');
+
+  const goalDefinitions = useMemo(() => getOnboardingGoals(t), [t]);
 
   const loadData = useCallback(async () => {
-    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory] = await Promise.all([
+    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory, profile] = await Promise.all([
       getSavedAlarm(),
       getWakeResults(),
       getLatestReaction(),
       getActiveContract(),
       getContractHistory(),
+      getUserProfile(),
     ]);
     setAlarm(savedAlarm);
     setResults(savedResults);
     setLatestReaction(savedLatestReaction);
     setActiveContract(savedActiveContract);
     setLatestContractOutcome(contractHistory[0] ?? null);
-  }, []);
+    setDisplayName(profile?.displayName?.trim() ?? '');
+
+    if (profile?.selectedGoalId) {
+      const goal = goalDefinitions.find((item) => item.id === profile.selectedGoalId);
+      setGoalHelperText(goal?.helperText ?? null);
+      return;
+    }
+
+    setGoalHelperText(null);
+  }, [goalDefinitions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -158,6 +176,13 @@ export default function HomeScreen() {
             <Text style={styles.brand}>UpTogether</Text>
             <Text style={styles.slogan}>Don&apos;t wake up alone.</Text>
           </View>
+
+          {goalHelperText ? (
+            <View style={styles.goalCard}>
+              <Text style={styles.goalKicker}>{displayName ? `Hey ${displayName},` : "Today's mission"}</Text>
+              <Text style={styles.goalHelperText}>{goalHelperText}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Next alarm</Text>
@@ -369,6 +394,27 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 24,
     marginBottom: 16,
+  },
+  goalCard: {
+    backgroundColor: 'rgba(255, 213, 74, 0.12)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    padding: 18,
+    marginBottom: 14,
+  },
+  goalKicker: {
+    color: colors.mutedText,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  goalHelperText: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 6,
   },
   statsCard: {
     backgroundColor: colors.card,

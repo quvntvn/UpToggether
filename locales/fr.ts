@@ -71,6 +71,55 @@ const fr = {
     kicker: 'Réveil en cours',
     timerLabel: 'Chrono de réaction',
   },
+
+  onboarding: {
+    heroSlogan: 'Ne te réveille pas seul.',
+    heroDescription: 'UpTogether t’aide à te réveiller avec intention grâce aux alarmes locales, à la motivation sociale et à une responsabilité simple.',
+    continue: 'Continuer',
+    confirmGoal: 'Confirmer l’objectif',
+    finish: 'Terminer',
+    selected: 'Sélectionné',
+    goalStepTitle: 'Que veux-tu améliorer ?',
+    goalStepSubtitle: 'Choisis une priorité pour tes matinées. Tu pourras la modifier plus tard dans les paramètres.',
+    confirmTitle: 'Confirmer et continuer',
+    confirmSubtitle: 'On personnalisera ton accueil avec cette mission.',
+    yourGoal: 'Ton objectif sélectionné',
+    nameLabel: 'Prénom (optionnel)',
+    namePlaceholder: 'Alex',
+    nameHelper: 'Utilisé pour un message d’accueil personnalisé.',
+    goals: {
+      wakeFaster: {
+        title: 'Se réveiller plus vite',
+        description: 'Entraîne tes réactions dès que le réveil démarre.',
+        helper: 'Essaie d’améliorer ton temps de réaction.',
+      },
+      stopSnoozing: {
+        title: 'Arrêter de snoozer',
+        description: 'Crée de l’élan en finissant ton réveil sans snooze.',
+        helper: 'Mission du jour : zéro snooze.',
+      },
+      buildRoutine: {
+        title: 'Créer une routine',
+        description: 'Sois présent chaque matin et protège ta série.',
+        helper: 'Protège ta série ce matin.',
+      },
+      wakeWithFriends: {
+        title: 'Se réveiller avec des amis',
+        description: 'Appuie-toi sur ton Morning Squad pour rester régulier ensemble.',
+        helper: 'Ton équipe t’attend.',
+      },
+      beatMyBuddy: {
+        title: 'Battre mon buddy',
+        description: 'Affronte ton Wake Buddy chaque jour et monte au classement.',
+        helper: 'Essaie de battre ton buddy aujourd’hui.',
+      },
+      moreDisciplined: {
+        title: 'Devenir plus discipliné',
+        description: 'Rends tes réveils réguliers et tiens tes promesses.',
+        helper: 'Un réveil intentionnel à la fois.',
+      },
+    },
+  },
   settings: {
     title: 'Paramètres',
     subtitle: 'Choisis la langue utilisée par UpTogether.',
@@ -78,6 +127,14 @@ const fr = {
     french: 'Français',
     english: 'English',
     activeLabel: 'Sélectionné',
+    profile: {
+      sectionTitle: 'Profil',
+      currentGoal: 'Objectif actuel',
+      redoOnboarding: 'Refaire l’onboarding',
+      resetTitle: 'Refaire l’onboarding ?',
+      resetMessage: 'Cela efface ton profil local pour afficher l’onboarding au prochain lancement.',
+      resetConfirm: 'Réinitialiser',
+    },
   },
 } as const;
 
