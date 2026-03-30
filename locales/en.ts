@@ -70,6 +70,55 @@ const en = {
     kicker: 'Alarm ringing',
     timerLabel: 'Reaction timer',
   },
+
+  onboarding: {
+    heroSlogan: 'Don’t wake up alone.',
+    heroDescription: 'UpTogether helps you wake with purpose using local alarms, social motivation, and simple accountability.',
+    continue: 'Continue',
+    confirmGoal: 'Confirm goal',
+    finish: 'Finish setup',
+    selected: 'Selected',
+    goalStepTitle: 'What do you want to improve?',
+    goalStepSubtitle: 'Pick one focus for your mornings. You can change this later in Settings.',
+    confirmTitle: 'Confirm and continue',
+    confirmSubtitle: 'We’ll personalize your home screen with this mission.',
+    yourGoal: 'Your selected goal',
+    nameLabel: 'First name (optional)',
+    namePlaceholder: 'Alex',
+    nameHelper: 'Used for a friendly greeting on your home screen.',
+    goals: {
+      wakeFaster: {
+        title: 'Wake up faster',
+        description: 'Train quick reactions right when your alarm starts.',
+        helper: 'Try to beat your reaction time.',
+      },
+      stopSnoozing: {
+        title: 'Stop snoozing',
+        description: 'Build momentum by ending your wake flow without snooze.',
+        helper: 'Today’s mission: no snooze.',
+      },
+      buildRoutine: {
+        title: 'Build a routine',
+        description: 'Show up every morning and protect your streak.',
+        helper: 'Protect your streak this morning.',
+      },
+      wakeWithFriends: {
+        title: 'Wake up with friends',
+        description: 'Use your Morning Squad to stay accountable together.',
+        helper: 'Your crew is waiting for you.',
+      },
+      beatMyBuddy: {
+        title: 'Beat my buddy',
+        description: 'Compete daily with your Wake Buddy and climb rankings.',
+        helper: 'Try to beat your buddy today.',
+      },
+      moreDisciplined: {
+        title: 'Become more disciplined',
+        description: 'Make wake-ups consistent and keep promises to yourself.',
+        helper: 'One intentional wake-up at a time.',
+      },
+    },
+  },
   settings: {
     title: 'Settings',
     subtitle: 'Choose how UpTogether speaks to you.',
@@ -77,6 +126,15 @@ const en = {
     french: 'Français',
     english: 'English',
     activeLabel: 'Selected',
+
+    profile: {
+      sectionTitle: 'Profile',
+      currentGoal: 'Current goal',
+      redoOnboarding: 'Redo onboarding',
+      resetTitle: 'Redo onboarding?',
+      resetMessage: 'This clears your local profile so onboarding shows again on next app open.',
+      resetConfirm: 'Reset',
+    },
   },
 } as const;
 
