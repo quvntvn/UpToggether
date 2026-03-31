@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDailyWakeBuddy } from '@/lib/mockBuddy';
+import { getBadgeById, getBadgeTitle } from '@/lib/badges';
 import { buildBuddyStatus } from '@/lib/mockBuddyStatus';
 import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
 import { buildMockFriendReactions } from '@/lib/mockReactions';
@@ -12,12 +13,14 @@ import { getOnboardingGoals } from '@/lib/onboardingGoals';
 import { colors } from '@/lib/theme';
 import { useLanguage } from '@/context/language-context';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
+import { getUnlockedBadges } from '@/storage/badgesStorage';
 import { getActiveContract, getContractHistory } from '@/storage/contractsStorage';
 import { getLatestReaction } from '@/storage/reactionsStorage';
 import { getUserProfile } from '@/storage/profileStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
 import type { ActiveWakeContract } from '@/types/contracts';
 import type { SavedReaction } from '@/types/reaction';
+import type { UnlockedBadge } from '@/types/badges';
 import { getBestStreak, getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
 
@@ -39,7 +42,7 @@ function toOrdinal(value: number) {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [alarm, setAlarm] = useState<SavedAlarm | null>(null);
@@ -49,17 +52,19 @@ export default function HomeScreen() {
   const [latestContractOutcome, setLatestContractOutcome] = useState<ActiveWakeContract | null>(null);
   const [goalHelperText, setGoalHelperText] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
+  const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
 
   const goalDefinitions = useMemo(() => getOnboardingGoals(t), [t]);
 
   const loadData = useCallback(async () => {
-    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory, profile] = await Promise.all([
+    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory, profile, badges] = await Promise.all([
       getSavedAlarm(),
       getWakeResults(),
       getLatestReaction(),
       getActiveContract(),
       getContractHistory(),
       getUserProfile(),
+      getUnlockedBadges(),
     ]);
     setAlarm(savedAlarm);
     setResults(savedResults);
@@ -67,6 +72,7 @@ export default function HomeScreen() {
     setActiveContract(savedActiveContract);
     setLatestContractOutcome(contractHistory[0] ?? null);
     setDisplayName(profile?.displayName?.trim() ?? '');
+    setUnlockedBadges(badges);
 
     if (profile?.selectedGoalId) {
       const goal = goalDefinitions.find((item) => item.id === profile.selectedGoalId);
@@ -158,6 +164,18 @@ export default function HomeScreen() {
 
     return 'Active ⏳';
   }, [activeContract]);
+
+  const latestUnlockedBadgeDefinition = useMemo(() => {
+    if (unlockedBadges.length === 0) {
+      return null;
+    }
+
+    const latestUnlocked = [...unlockedBadges].sort(
+      (left, right) => new Date(right.unlockedAt).getTime() - new Date(left.unlockedAt).getTime(),
+    )[0];
+
+    return latestUnlocked ? getBadgeById(latestUnlocked.badgeId) : null;
+  }, [unlockedBadges]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -275,6 +293,18 @@ export default function HomeScreen() {
               <Text style={styles.historyButtonText}>View History</Text>
             </Pressable>
           </View>
+
+          <Pressable style={styles.achievementsCard} onPress={() => router.push('/badges')}>
+            <View style={styles.achievementHeader}>
+              <Text style={styles.achievementTitle}>Achievements</Text>
+              <Text style={styles.achievementLink}>Open</Text>
+            </View>
+            <Text style={styles.achievementCount}>{unlockedBadges.length} unlocked</Text>
+            <Text style={styles.achievementLatest}>
+              Latest:{' '}
+              {latestUnlockedBadgeDefinition ? getBadgeTitle(latestUnlockedBadgeDefinition, language) : 'Unlock your first badge'}
+            </Text>
+          </Pressable>
 
           <View style={styles.socialPreviewCard}>
             <Text style={styles.socialTitle}>Morning Crew</Text>
@@ -551,6 +581,40 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
     marginBottom: 20,
+  },
+  achievementsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    padding: 18,
+    marginBottom: 20,
+  },
+  achievementHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  achievementTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  achievementLink: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  achievementCount: {
+    color: colors.primary,
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 10,
+  },
+  achievementLatest: {
+    color: colors.secondaryText,
+    fontSize: 14,
+    marginTop: 8,
   },
   socialTitle: {
     color: colors.text,

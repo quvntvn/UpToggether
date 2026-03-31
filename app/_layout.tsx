@@ -145,6 +145,7 @@ export default function RootLayout() {
           <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
           <Stack.Screen name="result" />
           <Stack.Screen name="history" />
+          <Stack.Screen name="badges" />
           <Stack.Screen name="contracts" />
           <Stack.Screen name="settings" />
         </Stack>

@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useLanguage } from '@/context/language-context';
+import { getBadgeById, getBadgeDescription, getBadgeTitle } from '@/lib/badges';
+import { evaluateAndUnlockBadges } from '@/lib/badgeEvaluator';
 import { didUserBeatBuddy, evaluateWakeContract } from '@/lib/contracts';
 import { getQuickMessageLabel, QUICK_MORNING_MESSAGES } from '@/lib/quickMessages';
 import { getDailyWakeBuddy } from '@/lib/mockBuddy';
@@ -17,7 +19,8 @@ import {
   updateContractProgress,
 } from '@/storage/contractsStorage';
 import { getLatestReaction, saveReaction } from '@/storage/reactionsStorage';
-import { getWakeResults } from '@/storage/wakeResultsStorage';
+import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
+import type { UnlockedBadge } from '@/types/badges';
 import type { ActiveWakeContract, WakeContractStatus } from '@/types/contracts';
 import { getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getMockPercentile } from '@/utils/time';
@@ -101,6 +104,7 @@ export default function ResultScreen() {
   const [activeContract, setActiveContract] = useState<ActiveWakeContract | null>(null);
   const [contractMessage, setContractMessage] = useState<string | null>(null);
   const [contractStatus, setContractStatus] = useState<WakeContractStatus | null>(null);
+  const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<UnlockedBadge[]>([]);
 
   useEffect(() => {
     async function loadLatestReaction() {
@@ -156,6 +160,37 @@ export default function ResultScreen() {
 
     void evaluateContractForWakeResult();
   }, [reactionSeconds, todayDate]);
+
+  useEffect(() => {
+    async function evaluateBadgesForWakeResult() {
+      if (!wakeResultId || reactionSeconds <= 0) {
+        return;
+      }
+
+      const wakeResults = await getWakeResults();
+      const matchingWakeResult =
+        wakeResults.find((result) => result.id === wakeResultId) ??
+        ({
+          id: wakeResultId,
+          date: todayDate.toISOString(),
+          scheduledTime: '',
+          stoppedAt: todayDate.toISOString(),
+          reactionSeconds,
+          reactionTime,
+          percentile,
+          snoozeCount: 0,
+          success: true,
+        } satisfies WakeResult);
+      const unlocked = await evaluateAndUnlockBadges({
+        wakeResults,
+        latestWakeResult: matchingWakeResult,
+      });
+
+      setNewlyUnlockedBadges(unlocked);
+    }
+
+    void evaluateBadgesForWakeResult();
+  }, [percentile, reactionSeconds, reactionTime, todayDate, wakeResultId]);
 
   const quickMessages = useMemo(
     () =>
@@ -242,6 +277,31 @@ export default function ResultScreen() {
           <Text style={styles.helper}>Faster than {percentile}% of users</Text>
           {wasSaved ? <Text style={styles.savedText}>Saved to your history.</Text> : null}
         </View>
+
+        {newlyUnlockedBadges.length > 0 ? (
+          <View style={styles.achievementCard}>
+            <Text style={styles.achievementTitle}>🏆 New achievement unlocked</Text>
+            {newlyUnlockedBadges.map((unlockedBadge) => {
+              const badge = getBadgeById(unlockedBadge.badgeId);
+
+              if (!badge) {
+                return null;
+              }
+
+              return (
+                <View key={unlockedBadge.badgeId} style={styles.achievementBadge}>
+                  <Text style={styles.achievementBadgeTitle}>
+                    {badge.emoji ?? '🏅'} {getBadgeTitle(badge, language)}
+                  </Text>
+                  <Text style={styles.achievementBadgeDescription}>{getBadgeDescription(badge, language)}</Text>
+                </View>
+              );
+            })}
+            <Pressable style={styles.achievementButton} onPress={() => router.push('/badges')}>
+              <Text style={styles.achievementButtonText}>View all badges</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {activeContract ? (
           <View style={styles.sectionCard}>
@@ -439,6 +499,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginTop: 12,
+  },
+  achievementCard: {
+    backgroundColor: 'rgba(255, 213, 74, 0.14)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14,
+  },
+  achievementTitle: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  achievementBadge: {
+    marginTop: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+  },
+  achievementBadgeTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  achievementBadgeDescription: {
+    color: colors.secondaryText,
+    fontSize: 13,
+    marginTop: 6,
+  },
+  achievementButton: {
+    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  achievementButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
   },
   contractResultTitle: {
     color: colors.text,
