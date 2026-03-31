@@ -38,3 +38,15 @@ export async function unlockBadge(input: UnlockedBadge): Promise<boolean> {
 export async function clearBadges() {
   await AsyncStorage.removeItem(BADGES_STORAGE_KEY);
 }
+
+export async function getLatestUnlockedBadge() {
+  const unlockedBadges = await getUnlockedBadges();
+
+  if (unlockedBadges.length === 0) {
+    return null;
+  }
+
+  return [...unlockedBadges].sort(
+    (left, right) => new Date(right.unlockedAt).getTime() - new Date(left.unlockedAt).getTime(),
+  )[0];
+}
