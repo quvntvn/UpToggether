@@ -2,6 +2,8 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { isNativeNotificationsSupported } from '@/lib/isNativeNotificationsSupported';
+
 import {
   DEFAULT_ALARM_SOUND_ID,
   getAlarmSoundOption,
@@ -18,14 +20,16 @@ export type AlarmNotificationData = {
   alarmTime: string;
 };
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+if (isNativeNotificationsSupported) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export function getNextAlarmDate(hour: number, minute: number) {
   const now = new Date();

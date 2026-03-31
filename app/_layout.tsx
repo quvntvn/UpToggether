@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { LanguageProvider } from '@/context/language-context';
+import { isNativeNotificationsSupported } from '@/lib/isNativeNotificationsSupported';
 import { colors } from '@/lib/theme';
 import { getWakeRouteParamsFromNotification } from '@/services/alarm';
 import { getUserProfile } from '@/storage/profileStorage';
@@ -29,6 +30,10 @@ function AlarmNotificationBridge() {
   const hasHandledInitialResponse = useRef(false);
 
   useEffect(() => {
+    if (!isNativeNotificationsSupported) {
+      return;
+    }
+
     const navigateFromResponse = (response: Notifications.NotificationResponse | null) => {
       if (!response) {
         return;
