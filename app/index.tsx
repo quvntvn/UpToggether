@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getDailyWakeBuddy } from '@/lib/mockBuddy';
-import { getBadgeById, getBadgeTitle } from '@/lib/badges';
+import { BADGE_CATALOG, getBadgeById, getBadgeTitle } from '@/lib/badges';
 import { buildBuddyStatus } from '@/lib/mockBuddyStatus';
 import { buildMockGroupSnapshot, formatGroupStatusLabel } from '@/lib/mockGroupStatus';
 import { buildMockFriendReactions } from '@/lib/mockReactions';
@@ -13,7 +13,7 @@ import { getOnboardingGoals } from '@/lib/onboardingGoals';
 import { colors } from '@/lib/theme';
 import { useLanguage } from '@/context/language-context';
 import { getSavedAlarm, type SavedAlarm } from '@/storage/alarmStorage';
-import { getUnlockedBadges } from '@/storage/badgesStorage';
+import { getLatestUnlockedBadge, getUnlockedBadges } from '@/storage/badgesStorage';
 import { getActiveContract, getContractHistory } from '@/storage/contractsStorage';
 import { getLatestReaction } from '@/storage/reactionsStorage';
 import { getUserProfile } from '@/storage/profileStorage';
@@ -53,19 +53,22 @@ export default function HomeScreen() {
   const [goalHelperText, setGoalHelperText] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
+  const [latestUnlockedBadgeId, setLatestUnlockedBadgeId] = useState<string | null>(null);
 
   const goalDefinitions = useMemo(() => getOnboardingGoals(t), [t]);
 
   const loadData = useCallback(async () => {
-    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory, profile, badges] = await Promise.all([
-      getSavedAlarm(),
-      getWakeResults(),
-      getLatestReaction(),
-      getActiveContract(),
-      getContractHistory(),
-      getUserProfile(),
-      getUnlockedBadges(),
-    ]);
+    const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory, profile, badges, latestBadge] =
+      await Promise.all([
+        getSavedAlarm(),
+        getWakeResults(),
+        getLatestReaction(),
+        getActiveContract(),
+        getContractHistory(),
+        getUserProfile(),
+        getUnlockedBadges(),
+        getLatestUnlockedBadge(),
+      ]);
     setAlarm(savedAlarm);
     setResults(savedResults);
     setLatestReaction(savedLatestReaction);
@@ -73,6 +76,7 @@ export default function HomeScreen() {
     setLatestContractOutcome(contractHistory[0] ?? null);
     setDisplayName(profile?.displayName?.trim() ?? '');
     setUnlockedBadges(badges);
+    setLatestUnlockedBadgeId(latestBadge?.badgeId ?? null);
 
     if (profile?.selectedGoalId) {
       const goal = goalDefinitions.find((item) => item.id === profile.selectedGoalId);
@@ -166,16 +170,12 @@ export default function HomeScreen() {
   }, [activeContract]);
 
   const latestUnlockedBadgeDefinition = useMemo(() => {
-    if (unlockedBadges.length === 0) {
+    if (!latestUnlockedBadgeId) {
       return null;
     }
-
-    const latestUnlocked = [...unlockedBadges].sort(
-      (left, right) => new Date(right.unlockedAt).getTime() - new Date(left.unlockedAt).getTime(),
-    )[0];
-
-    return latestUnlocked ? getBadgeById(latestUnlocked.badgeId) : null;
-  }, [unlockedBadges]);
+    return getBadgeById(latestUnlockedBadgeId);
+  }, [latestUnlockedBadgeId]);
+  const unlockedBadgeProgress = Math.round((unlockedBadges.length / BADGE_CATALOG.length) * 100);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -304,6 +304,7 @@ export default function HomeScreen() {
               Latest:{' '}
               {latestUnlockedBadgeDefinition ? getBadgeTitle(latestUnlockedBadgeDefinition, language) : 'Unlock your first badge'}
             </Text>
+            <Text style={styles.achievementLatest}>{unlockedBadgeProgress}% complete</Text>
           </Pressable>
 
           <View style={styles.socialPreviewCard}>

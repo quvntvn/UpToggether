@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useLanguage } from '@/context/language-context';
-import { BADGE_CATALOG, getBadgeDescription, getBadgeTitle } from '@/lib/badges';
+import { BADGE_CATALOG, getBadgeCategoryLabel, getBadgeDescription, getBadgeTitle } from '@/lib/badges';
 import { colors } from '@/lib/theme';
 import { getUnlockedBadges } from '@/storage/badgesStorage';
 import type { UnlockedBadge } from '@/types/badges';
@@ -37,6 +37,7 @@ export default function BadgesScreen() {
     language === 'fr'
       ? `${unlockedDefinitions.length} débloqué(s) sur ${BADGE_CATALOG.length}. Continue !`
       : `${unlockedDefinitions.length} unlocked out of ${BADGE_CATALOG.length}. Keep going!`;
+  const progressPercent = Math.round((unlockedDefinitions.length / BADGE_CATALOG.length) * 100);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,6 +46,9 @@ export default function BadgesScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>{language === 'fr' ? 'Succès' : 'Achievements'}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{language === 'fr' ? 'Débloqués' : 'Unlocked'}</Text>
@@ -59,6 +63,7 @@ export default function BadgesScreen() {
                   <Text style={styles.badgeTitle}>
                     {badge.emoji ?? '🏅'} {getBadgeTitle(badge, language)}
                   </Text>
+                  <Text style={styles.categoryLabel}>{getBadgeCategoryLabel(badge.category, language)}</Text>
                   <Text style={styles.badgeDescription}>{getBadgeDescription(badge, language)}</Text>
                   {unlocked ? (
                     <Text style={styles.unlockedAt}>
@@ -78,6 +83,7 @@ export default function BadgesScreen() {
               <Text style={styles.badgeTitle}>
                 {badge.emoji ?? '🔒'} {getBadgeTitle(badge, language)}
               </Text>
+              <Text style={styles.categoryLabel}>{getBadgeCategoryLabel(badge.category, language)}</Text>
               <Text style={styles.badgeDescription}>{getBadgeDescription(badge, language)}</Text>
               <Text style={styles.lockedLabel}>{language === 'fr' ? 'Verrouillé' : 'Locked'}</Text>
             </View>
@@ -112,6 +118,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 10,
   },
+  progressWrap: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
   sectionTitle: {
     color: colors.primary,
     fontSize: 14,
@@ -144,6 +163,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 6,
     lineHeight: 20,
+  },
+  categoryLabel: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   unlockedAt: {
     color: colors.primary,

@@ -1,5 +1,5 @@
 import type { Language } from '@/lib/i18n';
-import type { BadgeDefinition } from '@/types/badges';
+import type { BadgeCategory, BadgeDefinition } from '@/types/badges';
 
 export const BADGE_CATALOG: BadgeDefinition[] = [
   {
@@ -102,4 +102,16 @@ export function getBadgeTitle(badge: BadgeDefinition, language: Language) {
 
 export function getBadgeDescription(badge: BadgeDefinition, language: Language) {
   return badge.description[language] ?? badge.description.en;
+}
+
+export function getBadgeCategoryLabel(category: BadgeCategory, language: Language) {
+  const labels: Record<BadgeCategory, { en: string; fr: string }> = {
+    consistency: { en: 'Consistency', fr: 'Régularité' },
+    speed: { en: 'Speed', fr: 'Vitesse' },
+    social: { en: 'Social', fr: 'Social' },
+    milestone: { en: 'Milestone', fr: 'Étape' },
+    contracts: { en: 'Contracts', fr: 'Contrats' },
+  };
+
+  return labels[category][language] ?? labels[category].en;
 }

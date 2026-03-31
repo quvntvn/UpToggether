@@ -209,6 +209,14 @@ export default function ResultScreen() {
   const quickReactionsConfirmation =
     language === 'fr' ? 'Message envoyé à Morning Squad.' : 'Message sent to Morning Squad.';
   const contractTitle = language === 'fr' ? 'Wake Contract' : 'Wake Contract';
+  const unlockedAchievementsTitle =
+    language === 'fr'
+      ? newlyUnlockedBadges.length > 1
+        ? '🏆 Nouveaux succès débloqués'
+        : '🏆 Nouveau succès débloqué'
+      : newlyUnlockedBadges.length > 1
+        ? '🏆 New achievements unlocked'
+        : '🏆 New achievement unlocked';
 
   const wakeResultId = Array.isArray(wakeResultIdParam) ? wakeResultIdParam[0] : wakeResultIdParam;
   const wakeBuddy = useMemo(() => getDailyWakeBuddy(todayDate), [todayDate]);
@@ -280,7 +288,7 @@ export default function ResultScreen() {
 
         {newlyUnlockedBadges.length > 0 ? (
           <View style={styles.achievementCard}>
-            <Text style={styles.achievementTitle}>🏆 New achievement unlocked</Text>
+            <Text style={styles.achievementTitle}>{unlockedAchievementsTitle}</Text>
             {newlyUnlockedBadges.map((unlockedBadge) => {
               const badge = getBadgeById(unlockedBadge.badgeId);
 
