@@ -84,6 +84,7 @@ export default function ResultScreen() {
   const reactionTime = Math.floor(getNumberParam(reactionTimeParam));
   const percentile = Math.max(1, Math.floor(getNumberParam(percentileParam)) || getMockPercentile(reactionSeconds));
   const wasSaved = getBooleanParam(savedParam);
+  const wakeResultId = Array.isArray(wakeResultIdParam) ? wakeResultIdParam[0] : wakeResultIdParam;
 
   const ranking = useMemo(() => buildTodayRanking(reactionSeconds), [reactionSeconds]);
   const feed = useMemo(() => buildMorningFeed(ranking), [ranking]);
@@ -218,7 +219,6 @@ export default function ResultScreen() {
         ? '🏆 New achievements unlocked'
         : '🏆 New achievement unlocked';
 
-  const wakeResultId = Array.isArray(wakeResultIdParam) ? wakeResultIdParam[0] : wakeResultIdParam;
   const wakeBuddy = useMemo(() => getDailyWakeBuddy(todayDate), [todayDate]);
   const buddyComparison = useMemo(
     () =>
