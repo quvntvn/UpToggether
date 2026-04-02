@@ -5,7 +5,8 @@ import { Alert, BackHandler, Pressable, SafeAreaView, StyleSheet, Text, Vibratio
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { playAlarmSound, stopAlarmSound } from '@/services/sound';
-import { getSavedAlarm } from '@/storage/alarmStorage';
+import { syncWeeklyAlarmSchedule } from '@/services/alarmScheduleManager';
+import { getAlarmSchedule, setSkipNextOccurrence } from '@/storage/alarmScheduleStorage';
 import { saveWakeResult } from '@/storage/wakeResultsStorage';
 import { formatScheduledTime, getMockPercentile } from '@/utils/time';
 
@@ -79,9 +80,11 @@ export default function WakeScreen() {
     await stopAlarmSound();
     Vibration.cancel();
 
-    const savedAlarm = await getSavedAlarm();
-    const scheduledTime =
-      alarmTime ?? savedAlarm?.formattedTime ?? formatScheduledTime(new Date(startTime));
+    const savedAlarm = await getAlarmSchedule();
+    const scheduleTimeFromStorage = savedAlarm?.nextScheduledTimestamp
+      ? formatScheduledTime(new Date(savedAlarm.nextScheduledTimestamp))
+      : null;
+    const scheduledTime = alarmTime ?? scheduleTimeFromStorage ?? formatScheduledTime(new Date(startTime));
     const resultId = `${stoppedAt.toISOString()}-${reactionTime}`;
 
     await saveWakeResult({
@@ -97,6 +100,17 @@ export default function WakeScreen() {
       snoozeCount: 0,
       success: true,
     });
+
+    if (savedAlarm) {
+      if (savedAlarm.skipNextOccurrence) {
+        await setSkipNextOccurrence(false);
+      }
+
+      const refreshedSchedule = await getAlarmSchedule();
+      if (refreshedSchedule) {
+        await syncWeeklyAlarmSchedule(refreshedSchedule);
+      }
+    }
 
     router.replace({
       pathname: '/result',
