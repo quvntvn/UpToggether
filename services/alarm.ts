@@ -120,12 +120,10 @@ export async function cancelScheduledAlarm(notificationId?: string | null) {
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
 
-export async function scheduleAlarmNotification(
-  hour: number,
-  minute: number,
+export async function scheduleAlarmNotificationAtDate(
+  nextAlarmDate: Date,
   soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
-  const nextAlarmDate = getNextAlarmDate(hour, minute);
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
   const data = getAlarmNotificationData(nextAlarmDate);
 
@@ -173,6 +171,16 @@ export async function scheduleAlarmNotification(
       soundId: DEFAULT_ALARM_SOUND_ID,
     };
   }
+}
+
+
+export async function scheduleAlarmNotification(
+  hour: number,
+  minute: number,
+  soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
+) {
+  const nextAlarmDate = getNextAlarmDate(hour, minute);
+  return scheduleAlarmNotificationAtDate(nextAlarmDate, soundId);
 }
 
 export function getWakeRouteParamsFromNotification(

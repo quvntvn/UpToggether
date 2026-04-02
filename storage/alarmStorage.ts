@@ -1,33 +1,20 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  clearAlarmSchedule,
+  getAlarmSchedule,
+  saveAlarmSchedule,
+} from '@/storage/alarmScheduleStorage';
+import type { WeeklyAlarmSchedule } from '@/types/alarmSchedule';
 
-import type { AlarmSoundId } from '@/constants/alarmSounds';
-
-const ALARM_STORAGE_KEY = 'uptogether.alarm';
-
-export type SavedAlarm = {
-  hour: number;
-  minute: number;
-  formattedTime: string;
-  nextScheduledTimestamp: number;
-  enabled: boolean;
-  soundId?: AlarmSoundId;
-  notificationId?: string;
-};
+export type SavedAlarm = WeeklyAlarmSchedule;
 
 export async function getSavedAlarm(): Promise<SavedAlarm | null> {
-  const value = await AsyncStorage.getItem(ALARM_STORAGE_KEY);
-
-  if (!value) {
-    return null;
-  }
-
-  return JSON.parse(value) as SavedAlarm;
+  return getAlarmSchedule();
 }
 
 export async function saveAlarm(alarm: SavedAlarm) {
-  await AsyncStorage.setItem(ALARM_STORAGE_KEY, JSON.stringify(alarm));
+  await saveAlarmSchedule(alarm);
 }
 
 export async function clearAlarm() {
-  await AsyncStorage.removeItem(ALARM_STORAGE_KEY);
+  await clearAlarmSchedule();
 }
