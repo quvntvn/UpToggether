@@ -98,7 +98,7 @@ function OnboardingGate() {
       if (!isOnboardingComplete && !isOnOnboardingScreen) {
         router.replace('/onboarding');
       } else if (isOnboardingComplete && isOnOnboardingScreen) {
-        router.replace('/');
+        router.replace('/(tabs)');
       }
 
       setIsLoading(false);
@@ -136,7 +136,7 @@ export default function RootLayout() {
             headerTitleStyle: { fontWeight: '700' },
             contentStyle: { backgroundColor: '#0F172A' },
           }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="set-alarm" />
           <Stack.Screen name="alarm/[id]" options={{ title: 'Alarm editor' }} />
