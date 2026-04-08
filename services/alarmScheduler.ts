@@ -1,13 +1,9 @@
 import { formatAlarmTime } from '@/services/alarm';
-import { WEEKDAY_ORDER, type WeekdayKey, type WeeklyAlarmSchedule } from '@/types/alarmSchedule';
+import { WEEKDAY_ORDER, type AlarmSchedule, type NextUpcomingSchedule, type WeekdayKey } from '@/types/alarmSchedule';
 
 const LOOKAHEAD_DAYS = 14;
 
-export type AlarmOccurrence = {
-  date: Date;
-  day: WeekdayKey;
-  formattedTime: string;
-};
+type AlarmOccurrence = NextUpcomingSchedule['occurrence'];
 
 function jsDayToWeekdayKey(day: number): WeekdayKey {
   const map: WeekdayKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -20,7 +16,7 @@ function buildCandidateDate(baseDate: Date, hour: number, minute: number) {
   return candidate;
 }
 
-function findCandidateOccurrences(schedule: WeeklyAlarmSchedule, fromDate = new Date()): AlarmOccurrence[] {
+function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()): AlarmOccurrence[] {
   if (!schedule.enabled) {
     return [];
   }
@@ -58,20 +54,8 @@ function findCandidateOccurrences(schedule: WeeklyAlarmSchedule, fromDate = new 
   return occurrences;
 }
 
-export function getNextAlarmOccurrence(schedule: WeeklyAlarmSchedule, fromDate = new Date()): AlarmOccurrence | null {
-  const occurrences = findCandidateOccurrences(
-    {
-      ...schedule,
-      skipNextOccurrence: false,
-    },
-    fromDate,
-  );
-
-  return occurrences[0] ?? null;
-}
-
 export function getNextAlarmOccurrenceRespectingSkip(
-  schedule: WeeklyAlarmSchedule,
+  schedule: AlarmSchedule,
   fromDate = new Date(),
 ): AlarmOccurrence | null {
   const occurrences = findCandidateOccurrences(schedule, fromDate);
@@ -87,6 +71,28 @@ export function getNextAlarmOccurrenceRespectingSkip(
   return occurrences[1] ?? null;
 }
 
-export function getEnabledDaysSummary(schedule: WeeklyAlarmSchedule) {
+export function getNextUpcomingSchedule(
+  schedules: AlarmSchedule[],
+  fromDate = new Date(),
+): NextUpcomingSchedule | null {
+  const candidates = schedules
+    .map((schedule) => {
+      const occurrence = getNextAlarmOccurrenceRespectingSkip(schedule, fromDate);
+      if (!occurrence) {
+        return null;
+      }
+      return { schedule, occurrence };
+    })
+    .filter((item): item is NextUpcomingSchedule => Boolean(item));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  candidates.sort((a, b) => a.occurrence.date.getTime() - b.occurrence.date.getTime());
+  return candidates[0] ?? null;
+}
+
+export function getEnabledDaysSummary(schedule: AlarmSchedule) {
   return WEEKDAY_ORDER.filter((day) => schedule.days[day].enabled);
 }

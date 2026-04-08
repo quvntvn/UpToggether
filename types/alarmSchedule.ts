@@ -20,14 +20,26 @@ export type DailyAlarmConfig = {
 
 export type WeeklyAlarmDays = Record<WeekdayKey, DailyAlarmConfig>;
 
-export type WeeklyAlarmSchedule = {
+export type AlarmSchedule = {
+  id: string;
+  label: string;
   enabled: boolean;
   skipNextOccurrence: boolean;
-  label?: string;
   soundId: AlarmSoundId;
   days: WeeklyAlarmDays;
+  createdAt: string;
+  updatedAt: string;
   nextScheduledTimestamp: number | null;
   notificationId?: string;
+};
+
+export type NextUpcomingSchedule = {
+  schedule: AlarmSchedule;
+  occurrence: {
+    date: Date;
+    day: WeekdayKey;
+    formattedTime: string;
+  };
 };
 
 export const WEEKDAY_LABELS: Record<WeekdayKey, string> = {

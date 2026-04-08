@@ -12,12 +12,12 @@ import { buildMorningPreview } from '@/lib/mockRanking';
 import { getOnboardingGoals } from '@/lib/onboardingGoals';
 import { colors } from '@/lib/theme';
 import { useLanguage } from '@/context/language-context';
-import { syncWeeklyAlarmSchedule } from '@/services/alarmScheduleManager';
-import { getEnabledDaysSummary, getNextAlarmOccurrenceRespectingSkip } from '@/services/alarmScheduler';
+import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
+import { getEnabledDaysSummary, getNextUpcomingSchedule } from '@/services/alarmScheduler';
 import {
-  getAlarmSchedule,
-  setSkipNextOccurrence,
-  toggleScheduleEnabled,
+  getAlarmSchedules,
+  skipNextAlarmOccurrence,
+  toggleAlarmScheduleEnabled,
 } from '@/storage/alarmScheduleStorage';
 import { getLatestUnlockedBadge, getUnlockedBadges } from '@/storage/badgesStorage';
 import { getActiveContract, getContractHistory } from '@/storage/contractsStorage';
@@ -27,7 +27,7 @@ import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
 import type { ActiveWakeContract } from '@/types/contracts';
 import type { SavedReaction } from '@/types/reaction';
 import type { UnlockedBadge } from '@/types/badges';
-import { WEEKDAY_LABELS, type WeeklyAlarmSchedule } from '@/types/alarmSchedule';
+import { WEEKDAY_LABELS, type AlarmSchedule } from '@/types/alarmSchedule';
 import { getBestStreak, getCurrentStreak } from '@/utils/streak';
 import { formatReactionTime, getAverageReactionSeconds } from '@/utils/time';
 
@@ -52,7 +52,7 @@ export default function HomeScreen() {
   const { language, t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const [alarm, setAlarm] = useState<WeeklyAlarmSchedule | null>(null);
+  const [alarmSchedules, setAlarmSchedules] = useState<AlarmSchedule[]>([]);
   const [results, setResults] = useState<WakeResult[]>([]);
   const [latestReaction, setLatestReaction] = useState<SavedReaction | null>(null);
   const [activeContract, setActiveContract] = useState<ActiveWakeContract | null>(null);
@@ -67,7 +67,7 @@ export default function HomeScreen() {
   const loadData = useCallback(async () => {
     const [savedAlarm, savedResults, savedLatestReaction, savedActiveContract, contractHistory, profile, badges, latestBadge] =
       await Promise.all([
-        getAlarmSchedule(),
+        getAlarmSchedules(),
         getWakeResults(),
         getLatestReaction(),
         getActiveContract(),
@@ -76,7 +76,7 @@ export default function HomeScreen() {
         getUnlockedBadges(),
         getLatestUnlockedBadge(),
       ]);
-    setAlarm(savedAlarm);
+    setAlarmSchedules(savedAlarm);
     setResults(savedResults);
     setLatestReaction(savedLatestReaction);
     setActiveContract(savedActiveContract);
@@ -100,30 +100,15 @@ export default function HomeScreen() {
     }, [loadData]),
   );
 
-  const nextOccurrence = useMemo(() => {
-    if (!alarm) {
-      return null;
-    }
-
-    return getNextAlarmOccurrenceRespectingSkip(alarm, new Date());
-  }, [alarm]);
-
-  const enabledDaysSummary = useMemo(() => {
-    if (!alarm) {
-      return [] as string[];
-    }
-
-    return getEnabledDaysSummary(alarm).map((day) => WEEKDAY_LABELS[day]);
-  }, [alarm]);
+  const nextUpcoming = useMemo(() => getNextUpcomingSchedule(alarmSchedules, new Date()), [alarmSchedules]);
 
   const nextOccurrenceLabel = useMemo(() => {
-    if (!nextOccurrence) {
+    if (!nextUpcoming) {
       return null;
     }
 
-    return `${WEEKDAY_LABELS[nextOccurrence.day]} at ${nextOccurrence.formattedTime}`;
-  }, [nextOccurrence]);
-
+    return `${nextUpcoming.schedule.label} — ${WEEKDAY_LABELS[nextUpcoming.occurrence.day]} at ${nextUpcoming.occurrence.formattedTime}`;
+  }, [nextUpcoming]);
   const currentStreak = useMemo(() => getCurrentStreak(results), [results]);
   const bestStreak = useMemo(() => getBestStreak(results), [results]);
   const averageReactionSeconds = useMemo(
@@ -197,25 +182,18 @@ export default function HomeScreen() {
   const unlockedBadgeProgress = Math.round((unlockedBadges.length / BADGE_CATALOG.length) * 100);
 
 
-  const handleToggleScheduleEnabled = async () => {
-    if (!alarm) {
-      return;
-    }
-
-    const updated = await toggleScheduleEnabled(!alarm.enabled);
-    const { schedule } = await syncWeeklyAlarmSchedule(updated);
-    setAlarm(schedule);
+  const handleToggleScheduleEnabled = async (scheduleId: string) => {
+    await toggleAlarmScheduleEnabled(scheduleId);
+    await syncAlarmSchedules();
+    await loadData();
   };
 
-  const handleSkipNext = async () => {
-    if (!alarm || !alarm.enabled) {
-      return;
-    }
-
-    const updated = await setSkipNextOccurrence(true);
-    const { schedule } = await syncWeeklyAlarmSchedule(updated);
-    setAlarm(schedule);
+  const handleSkipNext = async (scheduleId: string) => {
+    await skipNextAlarmOccurrence(scheduleId);
+    await syncAlarmSchedules();
+    await loadData();
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -243,50 +221,53 @@ export default function HomeScreen() {
           ) : null}
 
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Alarm schedule</Text>
-            {!alarm ? (
+            <Text style={styles.cardLabel}>Next alarm</Text>
+            {!nextUpcoming ? (
               <>
-                <Text style={styles.placeholderTitle}>No alarm saved yet</Text>
-                <Text style={styles.cardInfo}>Set your first wake-up to keep your mornings on track.</Text>
-              </>
-            ) : !alarm.enabled ? (
-              <>
-                <Text style={styles.placeholderTitle}>Schedule disabled</Text>
-                <Text style={styles.cardInfo}>No active alarms until you re-enable this schedule.</Text>
-              </>
-            ) : nextOccurrenceLabel ? (
-              <>
-                <Text style={styles.cardTime}>{nextOccurrence?.formattedTime}</Text>
-                <Text style={styles.cardInfo}>Next alarm: {nextOccurrenceLabel}</Text>
-                <Text style={styles.cardInfo}>Active days: {enabledDaysSummary.join(', ') || 'None'}</Text>
-                {alarm.skipNextOccurrence ? (
-                  <Text style={styles.skipInfo}>Next occurrence will be skipped once.</Text>
-                ) : null}
+                <Text style={styles.placeholderTitle}>No active alarms</Text>
+                <Text style={styles.cardInfo}>Create and enable a schedule to see your next wake-up.</Text>
               </>
             ) : (
               <>
-                <Text style={styles.placeholderTitle}>No active alarms</Text>
-                <Text style={styles.cardInfo}>Enable at least one day to schedule alarms.</Text>
+                <Text style={styles.cardTime}>{nextUpcoming.occurrence.formattedTime}</Text>
+                <Text style={styles.cardInfo}>{nextOccurrenceLabel}</Text>
+                {nextUpcoming.schedule.skipNextOccurrence ? (
+                  <Text style={styles.skipInfo}>Next occurrence skipped for this schedule.</Text>
+                ) : null}
               </>
             )}
 
-            {alarm ? (
-              <View style={styles.alarmActionsRow}>
-                <Pressable style={styles.cardActionButton} onPress={() => void handleToggleScheduleEnabled()}>
-                  <Text style={styles.cardActionText}>{alarm.enabled ? 'Disable schedule' : 'Enable schedule'}</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.cardActionButton, (!alarm.enabled || alarm.skipNextOccurrence) && styles.cardActionButtonDisabled]}
-                  onPress={() => void handleSkipNext()}
-                  disabled={!alarm.enabled || alarm.skipNextOccurrence}>
-                  <Text style={styles.cardActionText}>Skip next alarm</Text>
-                </Pressable>
-              </View>
-            ) : null}
+            {alarmSchedules.slice(0, 3).map((schedule) => {
+              const daySummary = getEnabledDaysSummary(schedule).map((day) => WEEKDAY_LABELS[day]).join(' ');
+              const nextForSchedule = getNextUpcomingSchedule([schedule]);
+
+              return (
+                <View key={schedule.id} style={styles.scheduleListItem}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.scheduleListTitle}>{schedule.label}</Text>
+                    <Text style={styles.cardInfo}>
+                      {daySummary || 'No active days'} — {nextForSchedule?.occurrence.formattedTime ?? '--:--'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.alarmActionsRow}>
+                    <Pressable style={styles.cardActionButton} onPress={() => void handleToggleScheduleEnabled(schedule.id)}>
+                      <Text style={styles.cardActionText}>{schedule.enabled ? 'Disable' : 'Enable'}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.cardActionButton, (!schedule.enabled || schedule.skipNextOccurrence) && styles.cardActionButtonDisabled]}
+                      onPress={() => void handleSkipNext(schedule.id)}
+                      disabled={!schedule.enabled || schedule.skipNextOccurrence}>
+                      <Text style={styles.cardActionText}>Skip</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
           </View>
 
           <Pressable style={styles.primaryButton} onPress={() => router.push('/set-alarm')}>
-            <Text style={styles.primaryButtonText}>Set Weekly Alarm</Text>
+            <Text style={styles.primaryButtonText}>Manage Alarm Schedules</Text>
           </Pressable>
 
           <Pressable
@@ -596,6 +577,17 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: 10,
     fontSize: 13,
+    fontWeight: '700',
+  },
+  scheduleListItem: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 12,
+  },
+  scheduleListTitle: {
+    color: colors.text,
+    fontSize: 16,
     fontWeight: '700',
   },
   alarmActionsRow: {

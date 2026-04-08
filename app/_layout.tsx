@@ -139,6 +139,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="set-alarm" />
+          <Stack.Screen name="alarm/[id]" options={{ title: 'Alarm editor' }} />
           <Stack.Screen name="friends" />
           <Stack.Screen name="group" />
           <Stack.Screen name="buddy" />
