@@ -79,7 +79,7 @@ function getAlarmNotificationData(
 }
 
 async function ensureAlarmNotificationChannel(soundName: string) {
-  if (Platform.OS !== 'android' || soundName === 'default') {
+  if (!isNativeNotificationsSupported || Platform.OS !== 'android' || soundName === 'default') {
     return undefined;
   }
 
@@ -102,6 +102,10 @@ async function ensureAlarmNotificationChannel(soundName: string) {
 }
 
 export async function requestAlarmPermissions() {
+  if (!isNativeNotificationsSupported) {
+    return true;
+  }
+
   const settings = await Notifications.getPermissionsAsync();
 
   if (settings.granted || settings.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
@@ -120,11 +124,15 @@ export async function requestAlarmPermissions() {
 }
 
 export async function cancelScheduledAlarm(notificationId?: string | null) {
-  if (!notificationId) {
+  if (!notificationId || !isNativeNotificationsSupported) {
     return;
   }
 
   await Notifications.cancelScheduledNotificationAsync(notificationId);
+}
+
+function getWebNotificationFallbackId() {
+  return `web-${Date.now()}`;
 }
 
 export async function scheduleAlarmNotificationAtDate(
@@ -132,6 +140,14 @@ export async function scheduleAlarmNotificationAtDate(
   soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
   metadata?: { scheduleId?: string; scheduleLabel?: string },
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
+  if (!isNativeNotificationsSupported) {
+    return {
+      notificationId: getWebNotificationFallbackId(),
+      nextAlarmDate,
+      soundId,
+    };
+  }
+
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
   const data = getAlarmNotificationData(nextAlarmDate, metadata);
 
