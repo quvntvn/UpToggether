@@ -18,6 +18,8 @@ export type AlarmNotificationData = {
   route: '/wake';
   startTime: number;
   alarmTime: string;
+  scheduleId?: string;
+  scheduleLabel?: string;
 };
 
 if (isNativeNotificationsSupported) {
@@ -62,12 +64,17 @@ export function resolveAlarmNotificationSound(soundId: AlarmSoundId = DEFAULT_AL
   return sound.fileName ?? 'default';
 }
 
-function getAlarmNotificationData(nextAlarmDate: Date): AlarmNotificationData {
+function getAlarmNotificationData(
+  nextAlarmDate: Date,
+  metadata?: { scheduleId?: string; scheduleLabel?: string },
+): AlarmNotificationData {
   return {
     type: 'alarm',
     route: '/wake',
     startTime: nextAlarmDate.getTime(),
     alarmTime: formatAlarmTime(nextAlarmDate.getHours(), nextAlarmDate.getMinutes()),
+    scheduleId: metadata?.scheduleId,
+    scheduleLabel: metadata?.scheduleLabel,
   };
 }
 
@@ -123,9 +130,10 @@ export async function cancelScheduledAlarm(notificationId?: string | null) {
 export async function scheduleAlarmNotificationAtDate(
   nextAlarmDate: Date,
   soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
+  metadata?: { scheduleId?: string; scheduleLabel?: string },
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
-  const data = getAlarmNotificationData(nextAlarmDate);
+  const data = getAlarmNotificationData(nextAlarmDate, metadata);
 
   try {
     const channelId = await ensureAlarmNotificationChannel(preferredSoundName);
@@ -185,7 +193,7 @@ export async function scheduleAlarmNotification(
 
 export function getWakeRouteParamsFromNotification(
   notification: Notifications.Notification,
-): { startTime: string; alarmTime: string } {
+): { startTime: string; alarmTime: string; scheduleId?: string; scheduleLabel?: string } {
   const data = notification.request.content.data as Partial<AlarmNotificationData>;
   const notificationDate = new Date(notification.date);
   const fallback = notificationDate.getTime();
@@ -195,5 +203,7 @@ export function getWakeRouteParamsFromNotification(
       typeof data.startTime === 'number' && Number.isFinite(data.startTime) ? data.startTime : fallback,
     ),
     alarmTime: typeof data.alarmTime === 'string' ? data.alarmTime : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
+    scheduleId: typeof data.scheduleId === 'string' ? data.scheduleId : undefined,
+    scheduleLabel: typeof data.scheduleLabel === 'string' ? data.scheduleLabel : undefined,
   };
 }

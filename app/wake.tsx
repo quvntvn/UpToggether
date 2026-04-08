@@ -5,8 +5,8 @@ import { Alert, BackHandler, Pressable, SafeAreaView, StyleSheet, Text, Vibratio
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { playAlarmSound, stopAlarmSound } from '@/services/sound';
-import { syncWeeklyAlarmSchedule } from '@/services/alarmScheduleManager';
-import { getAlarmSchedule, setSkipNextOccurrence } from '@/storage/alarmScheduleStorage';
+import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
+import { clearSkippedNextOccurrence, getAlarmSchedules } from '@/storage/alarmScheduleStorage';
 import { saveWakeResult } from '@/storage/wakeResultsStorage';
 import { formatScheduledTime, getMockPercentile } from '@/utils/time';
 
@@ -29,10 +29,11 @@ function formatMilliseconds(milliseconds: number) {
 export default function WakeScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { startTime: startTimeParam, alarmTime: alarmTimeParam } =
-    useLocalSearchParams<{ startTime?: string; alarmTime?: string }>();
+  const { startTime: startTimeParam, alarmTime: alarmTimeParam, scheduleId: scheduleIdParam } =
+    useLocalSearchParams<{ startTime?: string; alarmTime?: string; scheduleId?: string }>();
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
   const alarmTime = Array.isArray(alarmTimeParam) ? alarmTimeParam[0] : alarmTimeParam;
+  const scheduleId = Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam;
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startTime));
   const [isStopping, setIsStopping] = useState(false);
   const stopInFlightRef = useRef(false);
@@ -80,9 +81,10 @@ export default function WakeScreen() {
     await stopAlarmSound();
     Vibration.cancel();
 
-    const savedAlarm = await getAlarmSchedule();
-    const scheduleTimeFromStorage = savedAlarm?.nextScheduledTimestamp
-      ? formatScheduledTime(new Date(savedAlarm.nextScheduledTimestamp))
+    const savedSchedules = await getAlarmSchedules();
+    const triggeringSchedule = scheduleId ? savedSchedules.find((schedule) => schedule.id === scheduleId) : null;
+    const scheduleTimeFromStorage = triggeringSchedule?.nextScheduledTimestamp
+      ? formatScheduledTime(new Date(triggeringSchedule.nextScheduledTimestamp))
       : null;
     const scheduledTime = alarmTime ?? scheduleTimeFromStorage ?? formatScheduledTime(new Date(startTime));
     const resultId = `${stoppedAt.toISOString()}-${reactionTime}`;
@@ -101,16 +103,11 @@ export default function WakeScreen() {
       success: true,
     });
 
-    if (savedAlarm) {
-      if (savedAlarm.skipNextOccurrence) {
-        await setSkipNextOccurrence(false);
-      }
-
-      const refreshedSchedule = await getAlarmSchedule();
-      if (refreshedSchedule) {
-        await syncWeeklyAlarmSchedule(refreshedSchedule);
-      }
+    if (triggeringSchedule?.skipNextOccurrence) {
+      await clearSkippedNextOccurrence(triggeringSchedule.id);
     }
+
+    await syncAlarmSchedules();
 
     router.replace({
       pathname: '/result',

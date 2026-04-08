@@ -1,356 +1,121 @@
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Stack, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
-import { syncWeeklyAlarmSchedule } from '@/services/alarmScheduleManager';
-import {
-  createDefaultAlarmSchedule,
-  getAlarmSchedule,
-  setSkipNextOccurrence,
-} from '@/storage/alarmScheduleStorage';
-import { WEEKDAY_LABELS, WEEKDAY_ORDER, type WeekdayKey, type WeeklyAlarmSchedule } from '@/types/alarmSchedule';
 import { formatAlarmTime } from '@/services/alarm';
+import { getEnabledDaysSummary, getNextAlarmOccurrenceRespectingSkip } from '@/services/alarmScheduler';
+import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
+import {
+  createAlarmSchedule,
+  getAlarmSchedules,
+  skipNextAlarmOccurrence,
+  toggleAlarmScheduleEnabled,
+} from '@/storage/alarmScheduleStorage';
+import { WEEKDAY_LABELS, type AlarmSchedule } from '@/types/alarmSchedule';
+
+const LABEL_PRESETS = ['Work', 'Gym', 'Study', 'Weekend', 'Custom'];
 
 export default function SetAlarmScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
-  const [schedule, setSchedule] = useState<WeeklyAlarmSchedule>(() => createDefaultAlarmSchedule());
-  const [isSaving, setIsSaving] = useState(false);
-  const [editingDay, setEditingDay] = useState<WeekdayKey | null>(null);
-  const [pickerDate, setPickerDate] = useState(() => new Date());
+  const [schedules, setSchedules] = useState<AlarmSchedule[]>([]);
 
-  useEffect(() => {
-    async function loadSchedule() {
-      const savedSchedule = await getAlarmSchedule();
-      if (savedSchedule) {
-        setSchedule(savedSchedule);
-      }
-    }
-
-    void loadSchedule();
+  const loadSchedules = useCallback(async () => {
+    setSchedules(await getAlarmSchedules());
   }, []);
 
-  const enabledDaysCount = useMemo(
-    () => WEEKDAY_ORDER.filter((day) => schedule.days[day].enabled).length,
-    [schedule.days],
+  useFocusEffect(
+    useCallback(() => {
+      void loadSchedules();
+    }, [loadSchedules]),
   );
 
-  const openDayTimePicker = (day: WeekdayKey) => {
-    const dayConfig = schedule.days[day];
-    const base = new Date();
-    base.setHours(dayConfig.hour, dayConfig.minute, 0, 0);
-    setPickerDate(base);
-    setEditingDay(day);
+  const handleCreate = async () => {
+    const defaultLabel = LABEL_PRESETS[schedules.length % LABEL_PRESETS.length] ?? 'Alarm';
+    const created = await createAlarmSchedule(defaultLabel === 'Custom' ? 'Custom Alarm' : defaultLabel);
+    await syncAlarmSchedules();
+    router.push({ pathname: '/alarm/[id]', params: { id: created.id } });
   };
 
-  const handleTimeChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (!editingDay || !selectedDate) {
-      return;
-    }
-
-    setPickerDate(selectedDate);
-    setSchedule((previous) => ({
-      ...previous,
-      days: {
-        ...previous.days,
-        [editingDay]: {
-          ...previous.days[editingDay],
-          hour: selectedDate.getHours(),
-          minute: selectedDate.getMinutes(),
-        },
-      },
-    }));
-
-    if (Platform.OS === 'android') {
-      setEditingDay(null);
-    }
+  const handleToggleEnabled = async (scheduleId: string) => {
+    await toggleAlarmScheduleEnabled(scheduleId);
+    await syncAlarmSchedules();
+    await loadSchedules();
   };
 
-  const handleSaveAlarm = async () => {
-    if (schedule.enabled && enabledDaysCount === 0) {
-      Alert.alert('No active days', 'Enable at least one day or disable this schedule.');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-
-      const { permissionsGranted } = await syncWeeklyAlarmSchedule(schedule, {
-        requirePermissions: schedule.enabled,
-      });
-
-      if (!permissionsGranted) {
-        Alert.alert(
-          t('setAlarm.notificationsDisabledTitle'),
-          t('setAlarm.notificationsDisabledMessage'),
-        );
-        return;
-      }
-
-      Alert.alert('Schedule saved', 'Your weekly alarm schedule has been updated.', [
-        {
-          text: 'Done',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (error) {
-      console.error('Failed to save alarm schedule', error);
-      Alert.alert(t('setAlarm.saveFailedTitle'), t('setAlarm.saveFailedMessage'));
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSkipNext = async (scheduleId: string) => {
+    await skipNextAlarmOccurrence(scheduleId);
+    await syncAlarmSchedules();
+    await loadSchedules();
   };
 
-  const toggleDayEnabled = (day: WeekdayKey) => {
-    setSchedule((previous) => ({
-      ...previous,
-      days: {
-        ...previous.days,
-        [day]: {
-          ...previous.days[day],
-          enabled: !previous.days[day].enabled,
-        },
-      },
-    }));
-  };
-
-  const toggleSchedule = () => {
-    setSchedule((previous) => ({
-      ...previous,
-      enabled: !previous.enabled,
-    }));
-  };
-
-  const armSkipNext = async () => {
-    const updated = await setSkipNextOccurrence(true);
-    setSchedule(updated);
-    Alert.alert('Skip enabled', 'The next occurrence will be skipped once.');
-  };
+  const scheduleCountLabel = useMemo(() => `${schedules.length} schedule${schedules.length === 1 ? '' : 's'}`, [schedules.length]);
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: t('setAlarm.title') }} />
+      <Stack.Screen options={{ title: 'Alarm schedules' }} />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.topCard}>
-          <Text style={styles.sectionTitle}>Weekly schedule</Text>
-          <Text style={styles.helperText}>Customize wake times by weekday. Disable any day you do not need.</Text>
-
-          <Pressable
-            style={[styles.toggleButton, schedule.enabled ? styles.toggleOn : styles.toggleOff]}
-            onPress={toggleSchedule}>
-            <Text style={styles.toggleButtonText}>{schedule.enabled ? 'Schedule Enabled' : 'Schedule Disabled'}</Text>
-          </Pressable>
-
-          <Pressable style={styles.skipButton} onPress={() => void armSkipNext()}>
-            <Text style={styles.skipButtonText}>Skip next alarm</Text>
-          </Pressable>
+          <Text style={styles.sectionTitle}>Multiple alarms</Text>
+          <Text style={styles.helperText}>Create separate schedules for work, gym, study, and weekends.</Text>
+          <Text style={styles.countLabel}>{scheduleCountLabel}</Text>
         </View>
 
-        {WEEKDAY_ORDER.map((day) => {
-          const config = schedule.days[day];
-          const timeLabel = formatAlarmTime(config.hour, config.minute);
+        {schedules.map((schedule) => {
+          const days = getEnabledDaysSummary(schedule).map((day) => WEEKDAY_LABELS[day]).join(' ');
+          const next = getNextAlarmOccurrenceRespectingSkip(schedule);
+          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.days.monday.hour, schedule.days.monday.minute);
+
           return (
-            <View key={day} style={[styles.dayCard, !config.enabled && styles.dayCardDisabled]}>
-              <View style={styles.dayRow}>
-                <View>
-                  <Text style={styles.dayTitle}>{WEEKDAY_LABELS[day]}</Text>
-                  <Text style={styles.daySubtitle}>{config.enabled ? 'Enabled' : 'Disabled'}</Text>
-                </View>
+            <Pressable
+              key={schedule.id}
+              style={[styles.scheduleCard, !schedule.enabled && styles.disabledCard]}
+              onPress={() => router.push({ pathname: '/alarm/[id]', params: { id: schedule.id } })}>
+              <Text style={styles.scheduleTitle}>{schedule.label}</Text>
+              <Text style={styles.scheduleSummary}>{days || 'No active days'} — {displayTime}</Text>
+              {schedule.skipNextOccurrence ? <Text style={styles.skipInfo}>Next occurrence skipped once</Text> : null}
+
+              <View style={styles.rowActions}>
+                <Pressable style={styles.inlineButton} onPress={() => void handleToggleEnabled(schedule.id)}>
+                  <Text style={styles.inlineButtonText}>{schedule.enabled ? 'Disable' : 'Enable'}</Text>
+                </Pressable>
 
                 <Pressable
-                  style={[styles.dayToggle, config.enabled ? styles.dayToggleOn : styles.dayToggleOff]}
-                  onPress={() => toggleDayEnabled(day)}>
-                  <Text style={styles.dayToggleText}>{config.enabled ? 'On' : 'Off'}</Text>
+                  style={[styles.inlineButton, (!schedule.enabled || schedule.skipNextOccurrence) && styles.inlineButtonDisabled]}
+                  onPress={() => void handleSkipNext(schedule.id)}
+                  disabled={!schedule.enabled || schedule.skipNextOccurrence}>
+                  <Text style={styles.inlineButtonText}>Skip next</Text>
                 </Pressable>
               </View>
-
-              <Pressable
-                style={[styles.timeButton, !config.enabled && styles.timeButtonDisabled]}
-                onPress={() => openDayTimePicker(day)}>
-                <Text style={[styles.timeButtonText, !config.enabled && styles.mutedText]}>{timeLabel}</Text>
-                <Text style={[styles.timeButtonHelper, !config.enabled && styles.mutedText]}>Edit time</Text>
-              </Pressable>
-            </View>
+            </Pressable>
           );
         })}
 
-        <Pressable
-          style={[styles.primaryButton, isSaving && styles.disabledButton]}
-          onPress={() => void handleSaveAlarm()}
-          disabled={isSaving}>
-          <Text style={styles.primaryButtonText}>{isSaving ? t('setAlarm.saving') : 'Save Weekly Schedule'}</Text>
-        </Pressable>
-
-        <Pressable style={styles.secondaryButton} onPress={() => router.back()} disabled={isSaving}>
-          <Text style={styles.secondaryButtonText}>{t('common.cancel')}</Text>
+        <Pressable style={styles.primaryButton} onPress={() => void handleCreate()}>
+          <Text style={styles.primaryButtonText}>Create new schedule</Text>
         </Pressable>
       </ScrollView>
-
-      {editingDay ? (
-        <DateTimePicker
-          value={pickerDate}
-          mode="time"
-          is24Hour
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleTimeChange}
-          textColor={colors.text}
-          accentColor={colors.primary}
-          themeVariant="dark"
-        />
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 36,
-  },
-  topCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    marginBottom: 14,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  helperText: {
-    color: colors.secondaryText,
-    lineHeight: 20,
-    marginBottom: 14,
-  },
-  toggleButton: {
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  toggleOn: {
-    backgroundColor: colors.primary,
-  },
-  toggleOff: {
-    backgroundColor: '#475569',
-  },
-  toggleButtonText: {
-    color: '#111827',
-    fontWeight: '800',
-  },
-  skipButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  dayCard: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginBottom: 12,
-  },
-  dayCardDisabled: {
-    opacity: 0.7,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dayTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  daySubtitle: {
-    color: colors.mutedText,
-    marginTop: 2,
-  },
-  dayToggle: {
-    minWidth: 64,
-    borderRadius: 999,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  dayToggleOn: {
-    backgroundColor: colors.primary,
-  },
-  dayToggleOff: {
-    backgroundColor: '#334155',
-  },
-  dayToggleText: {
-    color: '#111827',
-    fontWeight: '800',
-  },
-  timeButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-  },
-  timeButtonDisabled: {
-    backgroundColor: '#0B1220',
-  },
-  timeButtonText: {
-    color: colors.primary,
-    fontWeight: '800',
-    fontSize: 20,
-  },
-  timeButtonHelper: {
-    color: colors.secondaryText,
-    marginTop: 2,
-  },
-  mutedText: {
-    color: colors.mutedText,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 18,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  primaryButtonText: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  disabledButton: {
-    opacity: 0.7,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  topCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 18, padding: 16, marginBottom: 14 },
+  sectionTitle: { color: colors.text, fontSize: 22, fontWeight: '800' },
+  helperText: { color: colors.secondaryText, marginTop: 6 },
+  countLabel: { color: colors.primary, marginTop: 10, fontWeight: '700' },
+  scheduleCard: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 14, marginBottom: 12 },
+  disabledCard: { opacity: 0.65 },
+  scheduleTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  scheduleSummary: { color: colors.secondaryText, marginTop: 5 },
+  skipInfo: { color: colors.primary, marginTop: 8, fontWeight: '700' },
+  rowActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  inlineButton: { flex: 1, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 10 },
+  inlineButtonDisabled: { opacity: 0.4 },
+  inlineButtonText: { color: colors.text, fontWeight: '700' },
+  primaryButton: { marginTop: 8, borderRadius: 16, backgroundColor: colors.primary, paddingVertical: 14, alignItems: 'center' },
+  primaryButtonText: { color: '#111827', fontWeight: '900', fontSize: 16 },
 });

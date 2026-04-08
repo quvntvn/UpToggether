@@ -1,71 +1,66 @@
-import { requestAlarmPermissions, cancelScheduledAlarm, scheduleAlarmNotificationAtDate } from '@/services/alarm';
-import { getNextAlarmOccurrenceRespectingSkip } from '@/services/alarmScheduler';
+import { cancelScheduledAlarm, requestAlarmPermissions, scheduleAlarmNotificationAtDate } from '@/services/alarm';
+import { getNextUpcomingSchedule } from '@/services/alarmScheduler';
 import {
-  getAlarmSchedule,
-  saveAlarmSchedule
+  getAlarmSchedules,
+  saveAlarmSchedules,
 } from '@/storage/alarmScheduleStorage';
-import type { WeeklyAlarmSchedule } from '@/types/alarmSchedule';
+import type { AlarmSchedule } from '@/types/alarmSchedule';
 
-export async function syncWeeklyAlarmSchedule(
-  schedule: WeeklyAlarmSchedule,
-  options?: { requirePermissions?: boolean },
-) {
-  await cancelScheduledAlarm(schedule.notificationId);
+function clearSchedulingFields(schedule: AlarmSchedule): AlarmSchedule {
+  return {
+    ...schedule,
+    nextScheduledTimestamp: null,
+    notificationId: undefined,
+  };
+}
 
-  if (!schedule.enabled) {
-    const disabledSchedule: WeeklyAlarmSchedule = {
-      ...schedule,
-      nextScheduledTimestamp: null,
-      notificationId: undefined,
-    };
-    await saveAlarmSchedule(disabledSchedule);
-    return { schedule: disabledSchedule, permissionsGranted: true };
-  }
+export async function syncAlarmSchedules(options?: { requirePermissions?: boolean }) {
+  const schedules = await getAlarmSchedules();
 
-  const nextOccurrence = getNextAlarmOccurrenceRespectingSkip(schedule, new Date());
+  await Promise.all(schedules.map((schedule) => cancelScheduledAlarm(schedule.notificationId)));
 
-  if (!nextOccurrence) {
-    const noOccurrenceSchedule: WeeklyAlarmSchedule = {
-      ...schedule,
-      nextScheduledTimestamp: null,
-      notificationId: undefined,
-    };
-    await saveAlarmSchedule(noOccurrenceSchedule);
-    return { schedule: noOccurrenceSchedule, permissionsGranted: true };
+  const cleanedSchedules = schedules.map(clearSchedulingFields);
+  const nextUpcoming = getNextUpcomingSchedule(cleanedSchedules, new Date());
+
+  if (!nextUpcoming) {
+    await saveAlarmSchedules(cleanedSchedules);
+    return { schedules: cleanedSchedules, nextUpcoming: null, permissionsGranted: true };
   }
 
   if (options?.requirePermissions) {
     const permissionsGranted = await requestAlarmPermissions();
-
     if (!permissionsGranted) {
-      return { schedule, permissionsGranted: false };
+      return { schedules, nextUpcoming, permissionsGranted: false };
     }
   }
 
-  const { notificationId, nextAlarmDate, soundId } = await scheduleAlarmNotificationAtDate(
-    nextOccurrence.date,
-    schedule.soundId,
+  const { nextAlarmDate, notificationId } = await scheduleAlarmNotificationAtDate(
+    nextUpcoming.occurrence.date,
+    nextUpcoming.schedule.soundId,
+    {
+      scheduleId: nextUpcoming.schedule.id,
+      scheduleLabel: nextUpcoming.schedule.label,
+    },
   );
 
-  const syncedSchedule: WeeklyAlarmSchedule = {
-    ...schedule,
-    soundId,
-    notificationId,
-    nextScheduledTimestamp: nextAlarmDate.getTime(),
+  const syncedSchedules = cleanedSchedules.map((schedule) =>
+    schedule.id === nextUpcoming.schedule.id
+      ? {
+          ...schedule,
+          nextScheduledTimestamp: nextAlarmDate.getTime(),
+          notificationId,
+        }
+      : schedule,
+  );
+
+  await saveAlarmSchedules(syncedSchedules);
+
+  return {
+    schedules: syncedSchedules,
+    nextUpcoming: {
+      ...nextUpcoming,
+      schedule: syncedSchedules.find((item) => item.id === nextUpcoming.schedule.id) ?? nextUpcoming.schedule,
+    },
+    permissionsGranted: true,
   };
-
-  await saveAlarmSchedule(syncedSchedule);
-
-  return { schedule: syncedSchedule, permissionsGranted: true };
-}
-
-export async function syncStoredWeeklyAlarmSchedule() {
-  const savedSchedule = await getAlarmSchedule();
-
-  if (!savedSchedule) {
-    return null;
-  }
-
-  const { schedule } = await syncWeeklyAlarmSchedule(savedSchedule);
-  return schedule;
 }
