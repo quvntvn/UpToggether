@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { buildMorningPreview } from '@/lib/mockRanking';
@@ -46,6 +46,12 @@ export default function HomeTabScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>UpTogether</Text>
         <Text style={styles.subtitle}>{displayName ? `Good morning, ${displayName}` : 'Your morning dashboard'}</Text>
+
+        {Platform.OS === 'web' ? (
+          <View style={styles.webBanner}>
+            <Text style={styles.webBannerText}>Notifications only work on mobile</Text>
+          </View>
+        ) : null}
 
         <View style={styles.card}>
           <Text style={styles.kicker}>NEXT ALARM</Text>
@@ -106,6 +112,15 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 36, gap: 12 },
   brand: { color: colors.text, fontSize: 32, fontWeight: '800' },
   subtitle: { color: colors.secondaryText, fontSize: 15, marginBottom: 4 },
+  webBanner: {
+    backgroundColor: 'rgba(255, 213, 74, 0.12)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 213, 74, 0.35)',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  webBannerText: { color: colors.primary, fontSize: 13, fontWeight: '700' },
   card: {
     backgroundColor: colors.card,
     borderRadius: 20,

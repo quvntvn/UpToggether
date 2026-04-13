@@ -13,6 +13,22 @@ import {
 const ALARM_BODY = 'Wake up! Don\'t wake up alone.';
 const ANDROID_ALARM_CHANNEL_ID = 'alarm-custom';
 
+type WebScheduledAlarm = {
+  notificationId: string;
+  scheduledFor: number;
+  timeoutId: ReturnType<typeof setTimeout>;
+};
+
+type ScheduleAlarmSafeOptions = {
+  title?: string;
+  body?: string;
+  sound?: Notifications.NotificationContentInput['sound'];
+  data?: AlarmNotificationData;
+  channelId?: string;
+};
+
+const webScheduledAlarms = new Map<string, WebScheduledAlarm>();
+
 export type AlarmNotificationData = {
   type: 'alarm';
   route: '/wake';
@@ -124,7 +140,22 @@ export async function requestAlarmPermissions() {
 }
 
 export async function cancelScheduledAlarm(notificationId?: string | null) {
-  if (!notificationId || !isNativeNotificationsSupported) {
+  if (!notificationId) {
+    return;
+  }
+
+  if (Platform.OS === 'web') {
+    const scheduledAlarm = webScheduledAlarms.get(notificationId);
+
+    if (scheduledAlarm) {
+      clearTimeout(scheduledAlarm.timeoutId);
+      webScheduledAlarms.delete(notificationId);
+    }
+
+    return;
+  }
+
+  if (!isNativeNotificationsSupported) {
     return;
   }
 
@@ -132,7 +163,57 @@ export async function cancelScheduledAlarm(notificationId?: string | null) {
 }
 
 function getWebNotificationFallbackId() {
-  return `web-${Date.now()}`;
+  return `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function showWebAlarmFallback() {
+  if (typeof globalThis.alert === 'function') {
+    globalThis.alert('⏰ Alarm!');
+    return;
+  }
+
+  console.info('Alarm!');
+}
+
+export async function scheduleAlarmSafe(
+  date: Date,
+  options: ScheduleAlarmSafeOptions = {},
+) {
+  if (Platform.OS === 'web') {
+    console.warn('Notifications not supported on web');
+
+    const notificationId = getWebNotificationFallbackId();
+    const delay = date.getTime() - Date.now();
+
+    if (delay > 0) {
+      const timeoutId = setTimeout(() => {
+        webScheduledAlarms.delete(notificationId);
+        showWebAlarmFallback();
+      }, delay);
+
+      webScheduledAlarms.set(notificationId, {
+        notificationId,
+        scheduledFor: date.getTime(),
+        timeoutId,
+      });
+    }
+
+    return notificationId;
+  }
+
+  return Notifications.scheduleNotificationAsync({
+    content: {
+      title: options.title ?? 'Alarm',
+      body: options.body ?? 'Wake up!',
+      sound: options.sound ?? true,
+      ...(options.data ? { data: options.data } : {}),
+    },
+    trigger: ({
+      type: 'date',
+      date,
+      ...(options.channelId ? { channelId: options.channelId } : {}),
+    } as unknown) as Notifications.NotificationTriggerInput,
+  });
 }
 
 export async function scheduleAlarmNotificationAtDate(
@@ -140,32 +221,18 @@ export async function scheduleAlarmNotificationAtDate(
   soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
   metadata?: { scheduleId?: string; scheduleLabel?: string },
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
-  if (!isNativeNotificationsSupported) {
-    return {
-      notificationId: getWebNotificationFallbackId(),
-      nextAlarmDate,
-      soundId,
-    };
-  }
-
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
   const data = getAlarmNotificationData(nextAlarmDate, metadata);
 
   try {
     const channelId = await ensureAlarmNotificationChannel(preferredSoundName);
 
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'UpTogether',
-        body: ALARM_BODY,
-        sound: preferredSoundName,
-        data,
-      },
-      trigger: ({
-        type: 'date',
-        date: nextAlarmDate,
-        channelId,
-      } as unknown) as Notifications.NotificationTriggerInput,
+    const notificationId = await scheduleAlarmSafe(nextAlarmDate, {
+      title: 'UpTogether',
+      body: ALARM_BODY,
+      sound: preferredSoundName,
+      data,
+      channelId,
     });
 
     return {
@@ -176,17 +243,11 @@ export async function scheduleAlarmNotificationAtDate(
   } catch (error) {
     console.warn('Falling back to default notification sound for alarm scheduling.', error);
 
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'UpTogether',
-        body: ALARM_BODY,
-        sound: 'default',
-        data,
-      },
-      trigger: ({
-        type: 'date',
-        date: nextAlarmDate,
-      } as unknown) as Notifications.NotificationTriggerInput,
+    const notificationId = await scheduleAlarmSafe(nextAlarmDate, {
+      title: 'UpTogether',
+      body: ALARM_BODY,
+      sound: 'default',
+      data,
     });
 
     return {

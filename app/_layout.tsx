@@ -2,7 +2,7 @@ import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -30,7 +30,7 @@ function AlarmNotificationBridge() {
   const hasHandledInitialResponse = useRef(false);
 
   useEffect(() => {
-    if (!isNativeNotificationsSupported) {
+    if (Platform.OS === 'web' || !isNativeNotificationsSupported) {
       return;
     }
 
