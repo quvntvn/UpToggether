@@ -180,7 +180,7 @@ export async function scheduleAlarmSafe(
   options: ScheduleAlarmSafeOptions = {},
 ) {
   if (Platform.OS === 'web') {
-    console.warn('Notifications not supported on web');
+    console.info(`[Web] Scheduling fallback alarm for ${date.toISOString()}`);
 
     const notificationId = getWebNotificationFallbackId();
     const delay = date.getTime() - Date.now();
@@ -200,6 +200,13 @@ export async function scheduleAlarmSafe(
 
     return notificationId;
   }
+
+  if (!isNativeNotificationsSupported) {
+    console.warn('Native notifications not supported on this platform');
+    return getWebNotificationFallbackId();
+  }
+
+  console.log(`[Native] Scheduling notification for ${date.toISOString()}`);
 
   return Notifications.scheduleNotificationAsync({
     content: {
