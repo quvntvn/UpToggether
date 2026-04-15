@@ -1,3 +1,4 @@
+import type { Language } from '@/lib/i18n';
 import { getDailyWakeBuddy } from '@/lib/mockBuddy';
 import type { BuddyComparison, BuddyFeedItem, BuddyStatus, MockBuddy } from '@/types/buddy';
 
@@ -7,6 +8,7 @@ type BuildBuddyStatusParams = {
   userReactionSeconds?: number | null;
   userSnoozeCount?: number;
   latestReactionLine?: string | null;
+  language?: Language;
 };
 
 function getDateKey(date: Date) {
@@ -41,15 +43,27 @@ function getBuddyReactionRange(buddy: MockBuddy) {
   return { min: 11, max: 28 };
 }
 
-function getReminderMessage(buddy: MockBuddy, dateKey: string) {
+function getReminderMessage(buddy: MockBuddy, dateKey: string, language: Language) {
   const remindersByPersonality = {
-    supportive: ['Debout 👀', 'You got this. Alarm first, snooze never.', 'I know you can do this morning.'],
-    competitive: ['Race you to awake mode 🏁', 'Don’t let me beat you again.', 'Today is not a snooze day.'],
-    sleepy: ['I almost snoozed… don’t copy me 😴', 'Tiny steps, just get up now.', 'Wake up with me, please.'],
-    strict: ['No snooze excuses today.', 'I saw that snooze button 😡', 'Phone down, feet on the floor.'],
+    supportive: {
+      en: ['Up already 👀', 'You got this. Alarm first, snooze never.', 'I know you can do this morning.'],
+      fr: ['Debout 👀', 'Tu peux le faire. D’abord le réveil, jamais le snooze.', 'Je sais que tu peux gérer ce matin.'],
+    },
+    competitive: {
+      en: ['Race you to awake mode 🏁', 'Don’t let me beat you again.', 'Today is not a snooze day.'],
+      fr: ['Course jusqu’au réveil 🏁', 'Ne me laisse pas te battre encore.', 'Aujourd’hui, pas de snooze.'],
+    },
+    sleepy: {
+      en: ['I almost snoozed… don’t copy me 😴', 'Tiny steps, just get up now.', 'Wake up with me, please.'],
+      fr: ['J’ai failli snoozer… ne fais pas comme moi 😴', 'Petit pas par petit pas, lève-toi maintenant.', 'Réveille-toi avec moi, s’il te plaît.'],
+    },
+    strict: {
+      en: ['No snooze excuses today.', 'I saw that snooze button 😡', 'Phone down, feet on the floor.'],
+      fr: ['Aucune excuse de snooze aujourd’hui.', 'J’ai vu ce bouton snooze 😡', 'Téléphone posé, pieds au sol.'],
+    },
   } as const;
 
-  const messages = remindersByPersonality[buddy.personality];
+  const messages = remindersByPersonality[buddy.personality][language] ?? remindersByPersonality[buddy.personality].en;
   const index = Math.floor(getSeededUnit(`${dateKey}:${buddy.id}:reminder`) * messages.length);
 
   return messages[index] ?? messages[0];
@@ -59,12 +73,13 @@ export function buildBuddyComparison({
   date = new Date(),
   hasUserWakeResult = false,
   userReactionSeconds,
+  language = 'en',
 }: BuildBuddyStatusParams): BuddyComparison | null {
   if (!hasUserWakeResult || typeof userReactionSeconds !== 'number') {
     return null;
   }
 
-  const buddy = getDailyWakeBuddy(date);
+  const buddy = getDailyWakeBuddy(date, language);
   const dateKey = getDateKey(date);
   const range = getBuddyReactionRange(buddy);
   const seed = getSeededUnit(`${dateKey}:${buddy.id}:reaction:${Math.round(userReactionSeconds)}`);
@@ -78,7 +93,7 @@ export function buildBuddyComparison({
       userReactionSeconds: safeUserReactionSeconds,
       buddyReactionSeconds,
       outcome: 'user',
-      summary: `You beat ${buddy.name} this morning`,
+      summary: language === 'fr' ? `Tu as battu ${buddy.name} ce matin` : `You beat ${buddy.name} this morning`,
     };
   }
 
@@ -88,7 +103,7 @@ export function buildBuddyComparison({
       userReactionSeconds: safeUserReactionSeconds,
       buddyReactionSeconds,
       outcome: 'buddy',
-      summary: `${buddy.name} beat you today`,
+      summary: language === 'fr' ? `${buddy.name} t’a battu aujourd’hui` : `${buddy.name} beat you today`,
     };
   }
 
@@ -97,7 +112,7 @@ export function buildBuddyComparison({
     userReactionSeconds: safeUserReactionSeconds,
     buddyReactionSeconds,
     outcome: 'tie',
-    summary: `You and ${buddy.name} tied today`,
+    summary: language === 'fr' ? `Égalité avec ${buddy.name} aujourd’hui` : `You and ${buddy.name} tied today`,
   };
 }
 
@@ -106,44 +121,65 @@ export function buildBuddyStatus({
   hasUserWakeResult = false,
   userReactionSeconds,
   userSnoozeCount = 0,
+  language = 'en',
 }: BuildBuddyStatusParams): BuddyStatus {
-  const buddy = getDailyWakeBuddy(date);
-  const comparison = buildBuddyComparison({ date, hasUserWakeResult, userReactionSeconds });
-  const reminder = getReminderMessage(buddy, getDateKey(date));
+  const buddy = getDailyWakeBuddy(date, language);
+  const comparison = buildBuddyComparison({ date, hasUserWakeResult, userReactionSeconds, language });
+  const reminder = getReminderMessage(buddy, getDateKey(date), language);
 
   if (comparison?.outcome === 'user') {
     return {
       kind: 'user-won',
-      shortLabel: `You beat ${buddy.name} today`,
-      accountabilityText: `${buddy.name} noticed your fast wake-up.`,
-      relationshipText: `${buddy.name} says: "Nice one, keep the streak alive."`,
+      shortLabel: language === 'fr' ? `Tu as battu ${buddy.name} aujourd’hui` : `You beat ${buddy.name} today`,
+      accountabilityText:
+        language === 'fr'
+          ? `${buddy.name} a remarqué ton réveil rapide.`
+          : `${buddy.name} noticed your fast wake-up.`,
+      relationshipText:
+        language === 'fr'
+          ? `${buddy.name} dit : "Bien joué, garde la série en vie."`
+          : `${buddy.name} says: "Nice one, keep the streak alive."`,
     };
   }
 
   if (comparison?.outcome === 'buddy') {
     return {
       kind: 'buddy-won',
-      shortLabel: `${buddy.name} is already awake`,
-      accountabilityText: `${buddy.name} is counting on you tomorrow morning.`,
-      relationshipText: `${buddy.name} says: "I’ll wait for your comeback."`,
+      shortLabel: language === 'fr' ? `${buddy.name} est déjà réveillé` : `${buddy.name} is already awake`,
+      accountabilityText:
+        language === 'fr'
+          ? `${buddy.name} compte sur toi demain matin.`
+          : `${buddy.name} is counting on you tomorrow morning.`,
+      relationshipText:
+        language === 'fr'
+          ? `${buddy.name} dit : "J’attends ton retour demain."`
+          : `${buddy.name} says: "I’ll wait for your comeback."`,
     };
   }
 
   if (comparison?.outcome === 'tie') {
     return {
       kind: 'tie',
-      shortLabel: `You and ${buddy.name} tied`,
-      accountabilityText: 'A tiny push tomorrow can decide the winner.',
-      relationshipText: `${buddy.name} says: "Round two tomorrow?"`,
+      shortLabel: language === 'fr' ? `Égalité avec ${buddy.name}` : `You and ${buddy.name} tied`,
+      accountabilityText:
+        language === 'fr'
+          ? 'Un petit effort demain peut faire la différence.'
+          : 'A tiny push tomorrow can decide the winner.',
+      relationshipText:
+        language === 'fr' ? `${buddy.name} dit : "Revanche demain ?"` : `${buddy.name} says: "Round two tomorrow?"`,
     };
   }
 
   if (userSnoozeCount > 0) {
     return {
       kind: 'sent-reminder',
-      shortLabel: `${buddy.name} saw that you snoozed`,
-      accountabilityText: `${buddy.name} sent: "${reminder}"`,
-      relationshipText: 'Your buddy is counting on you to avoid another snooze.',
+      shortLabel: language === 'fr' ? `${buddy.name} a vu ton snooze` : `${buddy.name} saw that you snoozed`,
+      accountabilityText:
+        language === 'fr' ? `${buddy.name} a envoyé : "${reminder}"` : `${buddy.name} sent: "${reminder}"`,
+      relationshipText:
+        language === 'fr'
+          ? 'Ton buddy compte sur toi pour éviter un autre snooze.'
+          : 'Your buddy is counting on you to avoid another snooze.',
     };
   }
 
@@ -153,26 +189,39 @@ export function buildBuddyStatus({
   if (statusRoll < 0.38) {
     return {
       kind: 'awake',
-      shortLabel: `${buddy.name} is already awake`,
-      accountabilityText: `${buddy.name} is waiting for your wake result.`,
-      relationshipText: 'You are not waking up alone today.',
+      shortLabel: language === 'fr' ? `${buddy.name} est déjà réveillé` : `${buddy.name} is already awake`,
+      accountabilityText:
+        language === 'fr'
+          ? `${buddy.name} attend ton résultat du matin.`
+          : `${buddy.name} is waiting for your wake result.`,
+      relationshipText: language === 'fr' ? 'Tu ne te réveilles pas seul aujourd’hui.' : 'You are not waking up alone today.',
     };
   }
 
   if (statusRoll < 0.72) {
     return {
       kind: 'pending',
-      shortLabel: `${buddy.name} is waiting for you`,
-      accountabilityText: `${buddy.name} sent: "${reminder}"`,
-      relationshipText: 'Your buddy will check your result this morning.',
+      shortLabel: language === 'fr' ? `${buddy.name} t’attend` : `${buddy.name} is waiting for you`,
+      accountabilityText:
+        language === 'fr' ? `${buddy.name} a envoyé : "${reminder}"` : `${buddy.name} sent: "${reminder}"`,
+      relationshipText:
+        language === 'fr'
+          ? 'Ton buddy regardera ton résultat ce matin.'
+          : 'Your buddy will check your result this morning.',
     };
   }
 
   return {
     kind: 'snoozing',
-    shortLabel: `${buddy.name} snoozed again`,
-    accountabilityText: 'Beat your buddy before the next snooze hits.',
-    relationshipText: `${buddy.name} says: "Don’t copy my snooze habit."`,
+    shortLabel: language === 'fr' ? `${buddy.name} a encore snoozé` : `${buddy.name} snoozed again`,
+    accountabilityText:
+      language === 'fr'
+        ? 'Bats ton buddy avant le prochain snooze.'
+        : 'Beat your buddy before the next snooze hits.',
+    relationshipText:
+      language === 'fr'
+        ? `${buddy.name} dit : "Ne copie pas mon habitude du snooze."`
+        : `${buddy.name} says: "Don’t copy my snooze habit."`,
   };
 }
 
@@ -182,11 +231,12 @@ export function buildBuddyFeed({
   userReactionSeconds,
   userSnoozeCount = 0,
   latestReactionLine,
+  language = 'en',
 }: BuildBuddyStatusParams): BuddyFeedItem[] {
-  const buddy = getDailyWakeBuddy(date);
+  const buddy = getDailyWakeBuddy(date, language);
   const dateKey = getDateKey(date);
-  const reminder = getReminderMessage(buddy, dateKey);
-  const comparison = buildBuddyComparison({ date, hasUserWakeResult, userReactionSeconds });
+  const reminder = getReminderMessage(buddy, dateKey, language);
+  const comparison = buildBuddyComparison({ date, hasUserWakeResult, userReactionSeconds, language });
 
   const lines: BuddyFeedItem[] = [
     {
@@ -197,14 +247,21 @@ export function buildBuddyFeed({
     {
       id: `${dateKey}-accountability`,
       author: buddy.name,
-      message: userSnoozeCount > 0 ? 'I noticed that snooze 😅' : 'Your buddy is counting on you.',
+      message:
+        userSnoozeCount > 0
+          ? language === 'fr'
+            ? 'J’ai vu ce snooze 😅'
+            : 'I noticed that snooze 😅'
+          : language === 'fr'
+            ? 'Ton buddy compte sur toi.'
+            : 'Your buddy is counting on you.',
     },
   ];
 
   if (latestReactionLine) {
     lines.push({
       id: `${dateKey}-user-reaction`,
-      author: 'You',
+      author: language === 'fr' ? 'Toi' : 'You',
       message: latestReactionLine,
     });
   }
@@ -213,7 +270,12 @@ export function buildBuddyFeed({
     lines.push({
       id: `${dateKey}-result`,
       author: buddy.name,
-      message: comparison.outcome === 'user' ? 'Okay you won today. Respect 👏' : comparison.summary,
+      message:
+        comparison.outcome === 'user'
+          ? language === 'fr'
+            ? 'Ok, tu as gagné aujourd’hui. Respect 👏'
+            : 'Okay you won today. Respect 👏'
+          : comparison.summary,
     });
   }
 

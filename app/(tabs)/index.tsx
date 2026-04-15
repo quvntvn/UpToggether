@@ -3,17 +3,19 @@ import { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useLanguage } from '@/context/language-context';
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
 import { getNextUpcomingSchedule } from '@/services/alarmScheduler';
 import { getAlarmSchedules } from '@/storage/alarmScheduleStorage';
 import { getUserProfile } from '@/storage/profileStorage';
 import { getWakeResults, type WakeResult } from '@/storage/wakeResultsStorage';
-import { WEEKDAY_LABELS, type AlarmSchedule } from '@/types/alarmSchedule';
+import { getWeekdayLabel, type AlarmSchedule } from '@/types/alarmSchedule';
 import { getCurrentStreak } from '@/utils/streak';
 
 export default function HomeTabScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [displayName, setDisplayName] = useState('');
   const [alarmSchedules, setAlarmSchedules] = useState<AlarmSchedule[]>([]);
   const [results, setResults] = useState<WakeResult[]>([]);
@@ -39,67 +41,108 @@ export default function HomeTabScreen() {
   const nextUpcoming = useMemo(() => getNextUpcomingSchedule(alarmSchedules, new Date()), [alarmSchedules]);
   const currentStreak = useMemo(() => getCurrentStreak(results), [results]);
   const latestResultSeconds = results.length > 0 ? results[0]?.reactionSeconds ?? 18 : 18;
-  const morningPreview = useMemo(() => buildMorningPreview(latestResultSeconds), [latestResultSeconds]);
+  const morningPreview = useMemo(() => buildMorningPreview(latestResultSeconds, new Date(), language), [language, latestResultSeconds]);
+
+  const copy =
+    language === 'fr'
+      ? {
+          subtitle: displayName ? `Bonjour, ${displayName}` : 'Ton tableau de bord du matin',
+          webBanner: 'Les notifications fonctionnent uniquement sur mobile',
+          nextAlarm: 'PROCHAIN RÉVEIL',
+          noAlarm: 'Aucune alarme',
+          noAlarmBody: 'Crée ta première programmation pour rester régulier.',
+          manageAlarms: 'Gérer les alarmes',
+          streak: 'SÉRIE',
+          streakValue: `${currentStreak} jour${currentStreak > 1 ? 's' : ''}`,
+          streakBody: 'Garde ton élan avec un réveil propre demain.',
+          today: 'AUJOURD’HUI',
+          quickPreviews: 'APERÇUS RAPIDES',
+          squadTitle: 'Morning Squad',
+          squadBody: 'Buddy, amis et mises à jour sociales',
+          progressTitle: 'Progrès',
+          progressBody: 'Historique, badges et contrats de réveil',
+          wakeTitle: 'Défi réveil',
+          wakeBody: 'Lance directement le parcours de réveil',
+        }
+      : {
+          subtitle: displayName ? `Good morning, ${displayName}` : 'Your morning dashboard',
+          webBanner: 'Notifications only work on mobile',
+          nextAlarm: 'NEXT ALARM',
+          noAlarm: 'No alarm',
+          noAlarmBody: 'Create your first schedule to stay consistent.',
+          manageAlarms: 'Manage alarms',
+          streak: 'STREAK',
+          streakValue: `${currentStreak} day${currentStreak === 1 ? '' : 's'}`,
+          streakBody: 'Keep momentum with one clean wake-up tomorrow.',
+          today: 'TODAY',
+          quickPreviews: 'QUICK PREVIEWS',
+          squadTitle: 'Morning Squad',
+          squadBody: 'Buddy, friends, and social updates',
+          progressTitle: 'Progress',
+          progressBody: 'History, badges, and wake contracts',
+          wakeTitle: 'Wake challenge',
+          wakeBody: 'Jump straight into the alarm challenge flow',
+        };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.brand}>UpTogether</Text>
-        <Text style={styles.subtitle}>{displayName ? `Good morning, ${displayName}` : 'Your morning dashboard'}</Text>
+        <Text style={styles.subtitle}>{copy.subtitle}</Text>
 
         {Platform.OS === 'web' ? (
           <View style={styles.webBanner}>
-            <Text style={styles.webBannerText}>Notifications only work on mobile</Text>
+            <Text style={styles.webBannerText}>{copy.webBanner}</Text>
           </View>
         ) : null}
 
         <View style={styles.card}>
-          <Text style={styles.kicker}>NEXT ALARM</Text>
+          <Text style={styles.kicker}>{copy.nextAlarm}</Text>
           {nextUpcoming ? (
             <>
               <Text style={styles.primaryValue}>{nextUpcoming.occurrence.formattedTime}</Text>
               <Text style={styles.secondaryText}>
-                {nextUpcoming.schedule.label} · {WEEKDAY_LABELS[nextUpcoming.occurrence.day]}
+                {nextUpcoming.schedule.label} · {getWeekdayLabel(nextUpcoming.occurrence.day, language)}
               </Text>
             </>
           ) : (
             <>
-              <Text style={styles.primaryValue}>No alarm</Text>
-              <Text style={styles.secondaryText}>Create your first schedule to stay consistent.</Text>
+              <Text style={styles.primaryValue}>{copy.noAlarm}</Text>
+              <Text style={styles.secondaryText}>{copy.noAlarmBody}</Text>
             </>
           )}
           <Pressable style={styles.inlineButton} onPress={() => router.push('/(tabs)/alarms')}>
-            <Text style={styles.inlineButtonText}>Manage alarms</Text>
+            <Text style={styles.inlineButtonText}>{copy.manageAlarms}</Text>
           </Pressable>
         </View>
 
         <View style={styles.row}>
           <View style={[styles.card, styles.halfCard]}>
-            <Text style={styles.kicker}>STREAK</Text>
-            <Text style={styles.metricValue}>{currentStreak} days</Text>
-            <Text style={styles.secondaryText}>Keep momentum with one clean wake-up tomorrow.</Text>
+            <Text style={styles.kicker}>{copy.streak}</Text>
+            <Text style={styles.metricValue}>{copy.streakValue}</Text>
+            <Text style={styles.secondaryText}>{copy.streakBody}</Text>
           </View>
 
           <View style={[styles.card, styles.halfCard]}>
-            <Text style={styles.kicker}>TODAY</Text>
+            <Text style={styles.kicker}>{copy.today}</Text>
             <Text style={styles.metricValue}>{morningPreview.positionLabel}</Text>
             <Text style={styles.secondaryText}>{morningPreview.message}</Text>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.kicker}>QUICK PREVIEWS</Text>
+          <Text style={styles.kicker}>{copy.quickPreviews}</Text>
           <Pressable style={styles.quickRow} onPress={() => router.push('/(tabs)/squad')}>
-            <Text style={styles.quickTitle}>Morning Squad</Text>
-            <Text style={styles.quickSubtitle}>Buddy, friends, and social updates</Text>
+            <Text style={styles.quickTitle}>{copy.squadTitle}</Text>
+            <Text style={styles.quickSubtitle}>{copy.squadBody}</Text>
           </Pressable>
           <Pressable style={styles.quickRow} onPress={() => router.push('/(tabs)/progress')}>
-            <Text style={styles.quickTitle}>Progress</Text>
-            <Text style={styles.quickSubtitle}>History, badges, and wake contracts</Text>
+            <Text style={styles.quickTitle}>{copy.progressTitle}</Text>
+            <Text style={styles.quickSubtitle}>{copy.progressBody}</Text>
           </Pressable>
           <Pressable style={styles.quickRow} onPress={() => router.push('/wake')}>
-            <Text style={styles.quickTitle}>Wake challenge</Text>
-            <Text style={styles.quickSubtitle}>Jump straight into the alarm challenge flow</Text>
+            <Text style={styles.quickTitle}>{copy.wakeTitle}</Text>
+            <Text style={styles.quickSubtitle}>{copy.wakeBody}</Text>
           </Pressable>
         </View>
       </ScrollView>

@@ -1,5 +1,6 @@
-import { mockFriends } from '@/lib/mockFriends';
-import type { FeedItem, MockFriend, RankedWakeEntry } from '@/types/social';
+import type { Language } from '@/lib/i18n';
+import { getMockFriends } from '@/lib/mockFriends';
+import type { FeedItem, MockFriend, MorningPreview, RankedWakeEntry } from '@/types/social';
 
 const USER_ENTRY_ID = 'user-local';
 
@@ -35,24 +36,24 @@ function getBehaviorRange(behavior: MockFriend['behavior']) {
   return { min: 12, max: 38 };
 }
 
-function getWakeStatus(reactionSeconds: number) {
+function getWakeStatus(reactionSeconds: number, language: Language) {
   if (reactionSeconds <= 8) {
-    return 'already awake';
+    return language === 'fr' ? 'est déjà réveillé' : 'is already awake';
   }
 
   if (reactionSeconds <= 16) {
-    return 'crushed it today';
+    return language === 'fr' ? 'a assuré ce matin' : 'crushed it today';
   }
 
   if (reactionSeconds <= 35) {
-    return 'solid morning';
+    return language === 'fr' ? 'est bien lancé' : 'has a solid morning';
   }
 
   if (reactionSeconds <= 60) {
-    return 'warming up slowly';
+    return language === 'fr' ? 'se réveille doucement' : 'is warming up slowly';
   }
 
-  return 'still sleepy';
+  return language === 'fr' ? 'est encore endormi' : 'is still sleepy';
 }
 
 function generateFriendReactionSeconds(friend: MockFriend, userReactionSeconds: number, dateKey: string) {
@@ -65,11 +66,16 @@ function generateFriendReactionSeconds(friend: MockFriend, userReactionSeconds: 
   return Math.max(4, generatedReaction);
 }
 
-export function buildTodayRanking(userReactionSeconds: number, date = new Date()): RankedWakeEntry[] {
+export function buildTodayRanking(
+  userReactionSeconds: number,
+  date = new Date(),
+  language: Language = 'en',
+): RankedWakeEntry[] {
   const safeUserReaction = Math.max(0, Math.round(userReactionSeconds));
   const dateKey = getDateKey(date);
+  const friends = getMockFriends(language);
 
-  const friendEntries: RankedWakeEntry[] = mockFriends.map((friend) => {
+  const friendEntries: RankedWakeEntry[] = friends.map((friend) => {
     const reactionSeconds = generateFriendReactionSeconds(friend, safeUserReaction, dateKey);
 
     return {
@@ -79,18 +85,18 @@ export function buildTodayRanking(userReactionSeconds: number, date = new Date()
       reactionSeconds,
       rank: 0,
       isUser: false,
-      status: getWakeStatus(reactionSeconds),
+      status: getWakeStatus(reactionSeconds, language),
     };
   });
 
   const userEntry: RankedWakeEntry = {
     id: USER_ENTRY_ID,
-    name: 'You',
+    name: language === 'fr' ? 'Toi' : 'You',
     avatar: '🫵',
     reactionSeconds: safeUserReaction,
     rank: 0,
     isUser: true,
-    status: getWakeStatus(safeUserReaction),
+    status: getWakeStatus(safeUserReaction, language),
   };
 
   const sortedEntries = [...friendEntries, userEntry].sort((left, right) => {
@@ -107,13 +113,13 @@ export function buildTodayRanking(userReactionSeconds: number, date = new Date()
   }));
 }
 
-export function buildMorningFeed(ranking: RankedWakeEntry[]): FeedItem[] {
+export function buildMorningFeed(ranking: RankedWakeEntry[], language: Language = 'en'): FeedItem[] {
   const friendHighlights = ranking
     .filter((entry) => !entry.isUser)
     .slice(0, 3)
     .map((entry) => ({
       id: `highlight-${entry.id}`,
-      message: `${entry.name} is ${entry.status}`,
+      message: language === 'fr' ? `${entry.name} ${entry.status}` : `${entry.name} ${entry.status}`,
     }));
 
   const userEntry = ranking.find((entry) => entry.isUser);
@@ -124,12 +130,30 @@ export function buildMorningFeed(ranking: RankedWakeEntry[]): FeedItem[] {
     ...friendHighlights,
     {
       id: 'user-summary',
-      message: userEntry ? `You beat ${Math.max(0, beatCount)} friend${beatCount === 1 ? '' : 's'} today` : 'Wake up to join your crew',
+      message: userEntry
+        ? language === 'fr'
+          ? `Tu as dépassé ${Math.max(0, beatCount)} ami${beatCount === 1 ? '' : 's'} aujourd’hui`
+          : `You beat ${Math.max(0, beatCount)} friend${beatCount === 1 ? '' : 's'} today`
+        : language === 'fr'
+          ? 'Réveille-toi pour rejoindre ton équipe'
+          : 'Wake up to join your crew',
     },
   ];
 }
 
-export function buildMorningPreview(userReactionSeconds = 18, date = new Date()): FeedItem[] {
-  const ranking = buildTodayRanking(userReactionSeconds, date);
-  return buildMorningFeed(ranking).slice(0, 3);
+export function buildMorningPreview(
+  userReactionSeconds = 18,
+  date = new Date(),
+  language: Language = 'en',
+): MorningPreview {
+  const ranking = buildTodayRanking(userReactionSeconds, date, language);
+  const userEntry = ranking.find((entry) => entry.isUser);
+  const summary = buildMorningFeed(ranking, language).find((item) => item.id === 'user-summary');
+
+  return {
+    positionLabel: language === 'fr' ? `#${userEntry?.rank ?? ranking.length} aujourd’hui` : `#${userEntry?.rank ?? ranking.length} today`,
+    message:
+      summary?.message ??
+      (language === 'fr' ? 'Tu prends ton rythme du matin.' : 'You are finding your morning pace.'),
+  };
 }

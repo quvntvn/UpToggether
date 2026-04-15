@@ -25,3 +25,8 @@ export type FeedItem = {
   id: string;
   message: string;
 };
+
+export type MorningPreview = {
+  positionLabel: string;
+  message: string;
+};

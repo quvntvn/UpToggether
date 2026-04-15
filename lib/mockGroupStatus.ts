@@ -1,3 +1,4 @@
+import type { Language } from '@/lib/i18n';
 import { getMockGroup } from '@/lib/mockGroups';
 import type { GroupFeedItem, GroupMemberStatus, GroupSnapshot, GroupWakeStatus, MockGroupMember } from '@/types/group';
 
@@ -6,6 +7,7 @@ type BuildGroupSnapshotParams = {
   userReactionSeconds?: number | null;
   hasUserWakeResult?: boolean;
   date?: Date;
+  language?: Language;
 };
 
 function getDateKey(date: Date) {
@@ -90,7 +92,7 @@ function compareStatusOrder(left: GroupWakeStatus, right: GroupWakeStatus) {
   return order[left] - order[right];
 }
 
-function buildGroupFeed(members: GroupMemberStatus[], userPosition: number): GroupFeedItem[] {
+function buildGroupFeed(members: GroupMemberStatus[], userPosition: number, language: Language): GroupFeedItem[] {
   const awakeFriend = members.find((member) => !member.isUser && member.status === 'awake');
   const snoozingFriend = members.find((member) => !member.isUser && member.status === 'snoozing');
   const teammatesBeaten = Math.max(0, members.length - userPosition);
@@ -98,15 +100,30 @@ function buildGroupFeed(members: GroupMemberStatus[], userPosition: number): Gro
   return [
     {
       id: 'feed-awake',
-      message: awakeFriend ? `${awakeFriend.name} crushed it today` : 'Your squad is waking up together',
+      message: awakeFriend
+        ? language === 'fr'
+          ? `${awakeFriend.name} a assuré ce matin`
+          : `${awakeFriend.name} crushed it today`
+        : language === 'fr'
+          ? 'Ton squad se réveille ensemble'
+          : 'Your squad is waking up together',
     },
     {
       id: 'feed-snooze',
-      message: snoozingFriend ? `${snoozingFriend.name} snoozed again 😴` : 'No snoozers yet in Morning Squad',
+      message: snoozingFriend
+        ? language === 'fr'
+          ? `${snoozingFriend.name} a encore snoozé 😴`
+          : `${snoozingFriend.name} snoozed again 😴`
+        : language === 'fr'
+          ? 'Aucun snoozer pour l’instant dans Morning Squad'
+          : 'No snoozers yet in Morning Squad',
     },
     {
       id: 'feed-user',
-      message: `You beat ${teammatesBeaten} teammate${teammatesBeaten === 1 ? '' : 's'} this morning`,
+      message:
+        language === 'fr'
+          ? `Tu as dépassé ${teammatesBeaten} équipier${teammatesBeaten === 1 ? '' : 's'} ce matin`
+          : `You beat ${teammatesBeaten} teammate${teammatesBeaten === 1 ? '' : 's'} this morning`,
     },
   ];
 }
@@ -116,8 +133,9 @@ export function buildMockGroupSnapshot({
   userReactionSeconds,
   hasUserWakeResult = false,
   date = new Date(),
+  language = 'en',
 }: BuildGroupSnapshotParams = {}): GroupSnapshot {
-  const group = getMockGroup(groupId);
+  const group = getMockGroup(groupId, language);
   const dateKey = getDateKey(date);
 
   const members = group.members.map((member) => {
@@ -185,18 +203,18 @@ export function buildMockGroupSnapshot({
     members: rankedMembers,
     userPosition,
     awakeCount,
-    feed: buildGroupFeed(rankedMembers, userPosition),
+    feed: buildGroupFeed(rankedMembers, userPosition, language),
   };
 }
 
-export function formatGroupStatusLabel(member: GroupMemberStatus) {
+export function formatGroupStatusLabel(member: GroupMemberStatus, language: Language = 'en') {
   if (member.status === 'awake') {
-    return 'Awake';
+    return language === 'fr' ? 'Réveillé' : 'Awake';
   }
 
   if (member.status === 'snoozing') {
-    return 'Snoozing';
+    return language === 'fr' ? 'En snooze' : 'Snoozing';
   }
 
-  return 'Not awake yet';
+  return language === 'fr' ? 'Pas encore réveillé' : 'Not awake yet';
 }
