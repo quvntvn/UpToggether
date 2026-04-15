@@ -25,6 +25,7 @@ export type AlarmSchedule = {
   label: string;
   enabled: boolean;
   skipNextOccurrence: boolean;
+  isOneTime: boolean;
   soundId: AlarmSoundId;
   days: WeeklyAlarmDays;
   createdAt: string;

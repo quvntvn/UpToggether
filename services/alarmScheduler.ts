@@ -64,11 +64,26 @@ export function getNextAlarmOccurrenceRespectingSkip(
     return null;
   }
 
+  if (schedule.isOneTime) {
+    // For one-time alarms, if skipNextOccurrence is true, it won't fire at all
+    return schedule.skipNextOccurrence ? null : occurrences[0];
+  }
+
   if (!schedule.skipNextOccurrence) {
     return occurrences[0] ?? null;
   }
 
+  // For repeating alarms, skipNextOccurrence returns the second occurrence
   return occurrences[1] ?? null;
+}
+
+/**
+ * Robust engine to get the next trigger date for an alarm.
+ * Handles repeat days, skipNext, past time today, and one-time alarms.
+ */
+export function getNextTriggerDate(alarm: AlarmSchedule, fromDate = new Date()): Date | null {
+  const occurrence = getNextAlarmOccurrenceRespectingSkip(alarm, fromDate);
+  return occurrence?.date ?? null;
 }
 
 export function getNextUpcomingSchedule(
