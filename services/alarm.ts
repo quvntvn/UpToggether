@@ -277,7 +277,7 @@ export async function scheduleAlarmNotification(
 
 export function getWakeRouteParamsFromNotification(
   notification: Notifications.Notification,
-): { startTime: string; alarmTime: string; scheduleId?: string; scheduleLabel?: string } {
+): { startTime: string; alarmTime: string; scheduleId?: string; alarmId?: string; scheduleLabel?: string } {
   const data = notification.request.content.data as Partial<AlarmNotificationData>;
   const notificationDate = new Date(notification.date);
   const fallback = notificationDate.getTime();
@@ -288,6 +288,7 @@ export function getWakeRouteParamsFromNotification(
     ),
     alarmTime: typeof data.alarmTime === 'string' ? data.alarmTime : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
     scheduleId: typeof data.scheduleId === 'string' ? data.scheduleId : undefined,
+    alarmId: typeof data.scheduleId === 'string' ? data.scheduleId : undefined,
     scheduleLabel: typeof data.scheduleLabel === 'string' ? data.scheduleLabel : undefined,
   };
 }

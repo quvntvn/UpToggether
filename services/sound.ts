@@ -34,6 +34,11 @@ function resolveAlarmSource() {
 export async function playAlarmSound() {
   try {
     if (alarmSound) {
+      const status = await alarmSound.getStatusAsync();
+      if (status.isLoaded && status.isPlaying) {
+        return true;
+      }
+      await alarmSound.setIsLoopingAsync(true);
       await alarmSound.setPositionAsync(0);
       await alarmSound.playAsync();
       return true;
