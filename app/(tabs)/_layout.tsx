@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 
 const TAB_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -12,6 +13,24 @@ const TAB_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function TabsLayout() {
+  const { language } = useLanguage();
+  const titles =
+    language === 'fr'
+      ? {
+          home: 'Accueil',
+          alarms: 'Alarmes',
+          squad: 'Squad',
+          progress: 'Progrès',
+          settings: 'Réglages',
+        }
+      : {
+          home: 'Home',
+          alarms: 'Alarms',
+          squad: 'Squad',
+          progress: 'Progress',
+          settings: 'Settings',
+        };
+
   return (
     <Tabs
       screenOptions={({ route }) => ({
@@ -42,11 +61,11 @@ export default function TabsLayout() {
           />
         ),
       })}>
-      <Tabs.Screen name="index" options={{ title: 'Home', headerTitle: 'UpTogether' }} />
-      <Tabs.Screen name="alarms" options={{ title: 'Alarms' }} />
-      <Tabs.Screen name="squad" options={{ title: 'Squad' }} />
-      <Tabs.Screen name="progress" options={{ title: 'Progress' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen name="index" options={{ title: titles.home, headerTitle: 'UpTogether' }} />
+      <Tabs.Screen name="alarms" options={{ title: titles.alarms }} />
+      <Tabs.Screen name="squad" options={{ title: titles.squad }} />
+      <Tabs.Screen name="progress" options={{ title: titles.progress }} />
+      <Tabs.Screen name="settings" options={{ title: titles.settings }} />
     </Tabs>
   );
 }
