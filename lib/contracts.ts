@@ -1,3 +1,4 @@
+import type { Language } from '@/lib/i18n';
 import { buildBuddyComparison } from '@/lib/mockBuddyStatus';
 import type {
   ActiveWakeContract,
@@ -129,19 +130,26 @@ function isWakeBeforeHour(stoppedAt: string, targetHour: number) {
 export function evaluateWakeContract(
   activeContract: ActiveWakeContract,
   input: ContractEvaluationInput,
+  language: Language = 'en',
 ): ContractEvaluationResult {
   switch (activeContract.type) {
     case 'no-snooze': {
       if (input.snoozeCount === 0) {
         return {
           status: 'completed',
-          summary: 'You kept your promise today. No snoozes.',
+          summary:
+            language === 'fr'
+              ? 'Tu as tenu ta promesse aujourd’hui. Aucun snooze.'
+              : 'You kept your promise today. No snoozes.',
         };
       }
 
       return {
         status: 'failed',
-        summary: `Contract failed: you snoozed ${input.snoozeCount} time${input.snoozeCount === 1 ? '' : 's'}.`,
+        summary:
+          language === 'fr'
+            ? `Contrat échoué : tu as snoozé ${input.snoozeCount} fois.`
+            : `Contract failed: you snoozed ${input.snoozeCount} time${input.snoozeCount === 1 ? '' : 's'}.`,
       };
     }
     case 'wake-before-7': {
@@ -151,11 +159,17 @@ export function evaluateWakeContract(
       return didWakeInTime
         ? {
             status: 'completed',
-            summary: 'Great discipline. You woke before 07:00.',
+            summary:
+              language === 'fr'
+                ? 'Belle discipline. Tu t’es réveillé avant 07:00.'
+                : 'Great discipline. You woke before 07:00.',
           }
         : {
             status: 'failed',
-            summary: 'Contract failed: wake time was after 07:00.',
+            summary:
+              language === 'fr'
+                ? 'Contrat échoué : le réveil a eu lieu après 07:00.'
+                : 'Contract failed: wake time was after 07:00.',
           };
     }
     case 'reaction-under-20s': {
@@ -163,22 +177,34 @@ export function evaluateWakeContract(
       return input.reactionSeconds < targetSeconds
         ? {
             status: 'completed',
-            summary: `Contract completed ✅ ${input.reactionSeconds}s reaction time.`,
+            summary:
+              language === 'fr'
+                ? `Contrat réussi ✅ temps de réaction : ${input.reactionSeconds}s.`
+                : `Contract completed ✅ ${input.reactionSeconds}s reaction time.`,
           }
         : {
             status: 'failed',
-            summary: `Contract failed: ${input.reactionSeconds}s is not under 20s.`,
+            summary:
+              language === 'fr'
+                ? `Contrat échoué : ${input.reactionSeconds}s n’est pas sous 20s.`
+                : `Contract failed: ${input.reactionSeconds}s is not under 20s.`,
           };
     }
     case 'beat-buddy': {
       return input.buddyWon
         ? {
             status: 'completed',
-            summary: 'You beat your buddy today. Promise kept.',
+            summary:
+              language === 'fr'
+                ? 'Tu as battu ton buddy aujourd’hui. Promesse tenue.'
+                : 'You beat your buddy today. Promise kept.',
           }
         : {
             status: 'failed',
-            summary: 'Buddy won this morning. Come back stronger tomorrow.',
+            summary:
+              language === 'fr'
+                ? 'Le buddy a gagné ce matin. Reviens plus fort demain.'
+                : 'Buddy won this morning. Come back stronger tomorrow.',
           };
     }
     case 'maintain-streak': {
@@ -188,11 +214,11 @@ export function evaluateWakeContract(
       if (current >= target) {
         return {
           status: 'completed',
-          summary: '7-day streak achieved. Contract completed.',
+          summary: language === 'fr' ? 'Série de 7 jours atteinte. Contrat réussi.' : '7-day streak achieved. Contract completed.',
           progress: {
             current,
             target,
-            note: 'Streak goal reached.',
+            note: language === 'fr' ? 'Objectif de série atteint.' : 'Streak goal reached.',
             lastCheckedAt: input.stoppedAt,
           },
         };
@@ -200,11 +226,17 @@ export function evaluateWakeContract(
 
       return {
         status: 'active',
-        summary: `Still active: ${current}/${target} streak days. Keep going tomorrow.`,
+        summary:
+          language === 'fr'
+            ? `Toujours actif : ${current}/${target} jours de série. Continue demain.`
+            : `Still active: ${current}/${target} streak days. Keep going tomorrow.`,
         progress: {
           current,
           target,
-          note: 'Contract remains active until target streak is reached.',
+          note:
+            language === 'fr'
+              ? 'Le contrat reste actif jusqu’à atteindre la série cible.'
+              : 'Contract remains active until target streak is reached.',
           lastCheckedAt: input.stoppedAt,
         },
       };
@@ -212,7 +244,7 @@ export function evaluateWakeContract(
     default:
       return {
         status: 'active',
-        summary: 'Contract is still active.',
+        summary: language === 'fr' ? 'Le contrat est toujours actif.' : 'Contract is still active.',
       };
   }
 }

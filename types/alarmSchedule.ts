@@ -1,4 +1,5 @@
 import type { AlarmSoundId } from '@/constants/alarmSounds';
+import type { Language } from '@/lib/i18n';
 
 export const WEEKDAY_ORDER = [
   'monday',
@@ -42,12 +43,27 @@ export type NextUpcomingSchedule = {
   };
 };
 
-export const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
-  monday: 'Mon',
-  tuesday: 'Tue',
-  wednesday: 'Wed',
-  thursday: 'Thu',
-  friday: 'Fri',
-  saturday: 'Sat',
-  sunday: 'Sun',
+const WEEKDAY_LABELS: Record<Language, Record<WeekdayKey, string>> = {
+  en: {
+    monday: 'Mon',
+    tuesday: 'Tue',
+    wednesday: 'Wed',
+    thursday: 'Thu',
+    friday: 'Fri',
+    saturday: 'Sat',
+    sunday: 'Sun',
+  },
+  fr: {
+    monday: 'Lun',
+    tuesday: 'Mar',
+    wednesday: 'Mer',
+    thursday: 'Jeu',
+    friday: 'Ven',
+    saturday: 'Sam',
+    sunday: 'Dim',
+  },
 };
+
+export function getWeekdayLabel(day: WeekdayKey, language: Language) {
+  return WEEKDAY_LABELS[language][day] ?? WEEKDAY_LABELS.en[day];
+}
