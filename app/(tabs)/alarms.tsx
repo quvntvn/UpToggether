@@ -97,7 +97,7 @@ export default function AlarmsTabScreen() {
             .map((day) => getWeekdayLabel(day, language))
             .join(' ');
           const next = getNextAlarmOccurrenceRespectingSkip(schedule);
-          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.days.monday.hour, schedule.days.monday.minute);
+          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.hour, schedule.minute);
 
           return (
             <Pressable

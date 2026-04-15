@@ -6,7 +6,6 @@ import {
   WEEKDAY_ORDER,
   type AlarmSchedule,
   type WeekdayKey,
-  type WeeklyAlarmDays,
 } from '@/types/alarmSchedule';
 
 const ALARM_SCHEDULES_STORAGE_KEY = 'uptogether.alarmSchedules';
@@ -30,35 +29,50 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function buildDefaultDays(hour = 7, minute = 0): WeeklyAlarmDays {
-  return {
-    monday: { enabled: true, hour, minute },
-    tuesday: { enabled: true, hour, minute },
-    wednesday: { enabled: true, hour, minute },
-    thursday: { enabled: true, hour, minute },
-    friday: { enabled: true, hour, minute },
-    saturday: { enabled: false, hour, minute },
-    sunday: { enabled: false, hour, minute },
-  };
-}
-
-function normalizeDay(source: unknown, fallback: { enabled: boolean; hour: number; minute: number }) {
-  const candidate = typeof source === 'object' && source !== null ? (source as Partial<{ enabled: boolean; hour: number; minute: number }>) : {};
-  return {
-    enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : fallback.enabled,
-    hour: Number.isInteger(candidate.hour) ? Number(candidate.hour) : fallback.hour,
-    minute: Number.isInteger(candidate.minute) ? Number(candidate.minute) : fallback.minute,
-  };
-}
-
 function normalizeSchedule(raw: unknown, fallbackLabel = 'Alarm'): AlarmSchedule {
-  const fallbackDays = buildDefaultDays();
-  const candidate = typeof raw === 'object' && raw !== null ? (raw as Partial<AlarmSchedule>) : {};
+  const candidate = typeof raw === 'object' && raw !== null ? (raw as any) : {};
 
-  const days = WEEKDAY_ORDER.reduce((acc, day) => {
-    acc[day] = normalizeDay(candidate.days?.[day], fallbackDays[day]);
-    return acc;
-  }, {} as WeeklyAlarmDays);
+  // Migration logic from old 'days' object to new 'hour', 'minute', 'repeatDays' structure
+  let hour = typeof candidate.hour === 'number' ? candidate.hour : 7;
+  let minute = typeof candidate.minute === 'number' ? candidate.minute : 0;
+  let repeatDays: WeekdayKey[] = Array.isArray(candidate.repeatDays) ? candidate.repeatDays : [];
+
+  if (!Array.isArray(candidate.repeatDays) && candidate.days && typeof candidate.days === 'object') {
+    // Old format detected
+    const oldDays = candidate.days;
+    const oldKeys: Record<string, number> = {
+      monday: 1,
+      tuesday: 2,
+      wednesday: 3,
+      thursday: 4,
+      friday: 5,
+      saturday: 6,
+      sunday: 0,
+    };
+
+    const enabledDays: WeekdayKey[] = [];
+    let firstFound = false;
+
+    for (const [key, val] of Object.entries(oldKeys)) {
+      const config = oldDays[key];
+      if (config && typeof config === 'object') {
+        if (!firstFound) {
+          hour = typeof config.hour === 'number' ? config.hour : hour;
+          minute = typeof config.minute === 'number' ? config.minute : minute;
+          firstFound = true;
+        }
+        if (config.enabled) {
+          enabledDays.push(val as WeekdayKey);
+        }
+      }
+    }
+    repeatDays = enabledDays;
+  }
+
+  // Ensure default repeatDays if empty and not explicitly a one-time alarm
+  if (repeatDays.length === 0 && !candidate.isOneTime && !candidate.days) {
+     repeatDays = [1, 2, 3, 4, 5]; // Default to weekdays
+  }
 
   const createdAt = typeof candidate.createdAt === 'string' ? candidate.createdAt : nowIso();
   const updatedAt = typeof candidate.updatedAt === 'string' ? candidate.updatedAt : createdAt;
@@ -68,8 +82,11 @@ function normalizeSchedule(raw: unknown, fallbackLabel = 'Alarm'): AlarmSchedule
     label: typeof candidate.label === 'string' && candidate.label.trim() ? candidate.label.trim() : fallbackLabel,
     enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : true,
     skipNextOccurrence: Boolean(candidate.skipNextOccurrence),
+    isOneTime: typeof candidate.isOneTime === 'boolean' ? candidate.isOneTime : false,
     soundId: candidate.soundId ?? DEFAULT_ALARM_SOUND_ID,
-    days,
+    hour,
+    minute,
+    repeatDays,
     createdAt,
     updatedAt,
     nextScheduledTimestamp:
@@ -88,7 +105,9 @@ function migrateLegacyAlarm(raw: unknown): AlarmSchedule {
     ...base,
     enabled: typeof legacy.enabled === 'boolean' ? legacy.enabled : true,
     soundId: legacy.soundId ?? DEFAULT_ALARM_SOUND_ID,
-    days: buildDefaultDays(hour, minute),
+    hour,
+    minute,
+    repeatDays: [1, 2, 3, 4, 5],
     nextScheduledTimestamp:
       typeof legacy.nextScheduledTimestamp === 'number' ? legacy.nextScheduledTimestamp : null,
     notificationId: legacy.notificationId,
@@ -102,8 +121,11 @@ function createAlarmScheduleInput(label: string): AlarmSchedule {
     label,
     enabled: true,
     skipNextOccurrence: false,
+    isOneTime: false,
     soundId: DEFAULT_ALARM_SOUND_ID,
-    days: buildDefaultDays(),
+    hour: 7,
+    minute: 0,
+    repeatDays: [1, 2, 3, 4, 5],
     createdAt: timestamp,
     updatedAt: timestamp,
     nextScheduledTimestamp: null,
@@ -122,9 +144,13 @@ async function migrateIfNeeded() {
     return;
   }
 
-  const migrated = migrateLegacyAlarm(JSON.parse(legacyValue));
-  await AsyncStorage.setItem(ALARM_SCHEDULES_STORAGE_KEY, JSON.stringify([migrated]));
-  await AsyncStorage.removeItem(LEGACY_ALARM_STORAGE_KEY);
+  try {
+    const migrated = migrateLegacyAlarm(JSON.parse(legacyValue));
+    await AsyncStorage.setItem(ALARM_SCHEDULES_STORAGE_KEY, JSON.stringify([migrated]));
+    await AsyncStorage.removeItem(LEGACY_ALARM_STORAGE_KEY);
+  } catch (e) {
+    console.error('Migration failed', e);
+  }
 }
 
 export async function getAlarmSchedules(): Promise<AlarmSchedule[]> {
@@ -135,12 +161,16 @@ export async function getAlarmSchedules(): Promise<AlarmSchedule[]> {
     return [];
   }
 
-  const parsed = JSON.parse(value) as unknown;
-  if (!Array.isArray(parsed)) {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map((item, index) => normalizeSchedule(item, `Alarm ${index + 1}`));
+  } catch (e) {
+    console.error('Failed to parse alarm schedules', e);
     return [];
   }
-
-  return parsed.map((item, index) => normalizeSchedule(item, `Alarm ${index + 1}`));
 }
 
 export async function saveAlarmSchedules(schedules: AlarmSchedule[]) {

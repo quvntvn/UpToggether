@@ -6,8 +6,9 @@ const LOOKAHEAD_DAYS = 14;
 type AlarmOccurrence = NextUpcomingSchedule['occurrence'];
 
 function jsDayToWeekdayKey(day: number): WeekdayKey {
-  const map: WeekdayKey[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  return map[day];
+  // In JS, 0 is Sunday, 1 is Monday, etc.
+  // Our WeekdayKey is already 0-6 mapping to Sunday-Saturday.
+  return day as WeekdayKey;
 }
 
 function buildCandidateDate(baseDate: Date, hour: number, minute: number) {
@@ -28,13 +29,22 @@ function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()
     base.setDate(fromDate.getDate() + offset);
 
     const weekday = jsDayToWeekdayKey(base.getDay());
-    const config = schedule.days[weekday];
 
-    if (!config.enabled) {
+    // Check if this weekday is in repeatDays
+    const isRepeatDay = schedule.repeatDays.includes(weekday);
+
+    // If it's a one-time alarm, it only fires on the first possible day (usually today or tomorrow)
+    // if repeatDays is empty, or if specifically matched.
+    // For simplicity, if one-time and no repeatDays, we allow any day until it fires.
+    if (!schedule.isOneTime && !isRepeatDay) {
       continue;
     }
 
-    const candidate = buildCandidateDate(base, config.hour, config.minute);
+    if (schedule.isOneTime && schedule.repeatDays.length > 0 && !isRepeatDay) {
+        continue;
+    }
+
+    const candidate = buildCandidateDate(base, schedule.hour, schedule.minute);
 
     if (candidate.getTime() <= fromDate.getTime()) {
       continue;
@@ -43,10 +53,14 @@ function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()
     occurrences.push({
       date: candidate,
       day: weekday,
-      formattedTime: formatAlarmTime(config.hour, config.minute),
+      formattedTime: formatAlarmTime(schedule.hour, schedule.minute),
     });
 
     if (occurrences.length >= 2) {
+      break;
+    }
+
+    if (schedule.isOneTime) {
       break;
     }
   }
@@ -109,5 +123,9 @@ export function getNextUpcomingSchedule(
 }
 
 export function getEnabledDaysSummary(schedule: AlarmSchedule) {
-  return WEEKDAY_ORDER.filter((day) => schedule.days[day].enabled);
+  return [...schedule.repeatDays].sort((a, b) => {
+      // Sort according to WEEKDAY_ORDER [1,2,3,4,5,6,0]
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      return order.indexOf(a) - order.indexOf(b);
+  });
 }
