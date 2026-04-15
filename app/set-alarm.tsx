@@ -2,6 +2,7 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { formatAlarmTime } from '@/services/alarm';
 import { getEnabledDaysSummary, getNextAlarmOccurrenceRespectingSkip } from '@/services/alarmScheduler';
@@ -12,12 +13,13 @@ import {
   skipNextAlarmOccurrence,
   toggleAlarmScheduleEnabled,
 } from '@/storage/alarmScheduleStorage';
-import { WEEKDAY_LABELS, type AlarmSchedule } from '@/types/alarmSchedule';
+import { getWeekdayLabel, type AlarmSchedule } from '@/types/alarmSchedule';
 
 const LABEL_PRESETS = ['Work', 'Gym', 'Study', 'Weekend', 'Custom'];
 
 export default function SetAlarmScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [schedules, setSchedules] = useState<AlarmSchedule[]>([]);
 
   const loadSchedules = useCallback(async () => {
@@ -63,9 +65,9 @@ export default function SetAlarmScreen() {
         </View>
 
         {schedules.map((schedule) => {
-          const days = getEnabledDaysSummary(schedule).map((day) => WEEKDAY_LABELS[day]).join(' ');
+          const days = getEnabledDaysSummary(schedule).map((day) => getWeekdayLabel(day, language)).join(' ');
           const next = getNextAlarmOccurrenceRespectingSkip(schedule);
-          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.days.monday.hour, schedule.days.monday.minute);
+          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.hour, schedule.minute);
 
           return (
             <Pressable
