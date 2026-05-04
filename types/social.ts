@@ -1,6 +1,6 @@
 export type WakeBehaviorProfile = 'fast' | 'average' | 'sleepy';
 
-export type FriendArchetypeLabel = 'Early bird' | 'Consistent' | 'Snooze lover';
+export type FriendArchetypeLabel = string;
 
 export type MockFriend = {
   id: string;

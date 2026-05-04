@@ -8,12 +8,12 @@ import { colors } from '@/lib/theme';
 import { formatAlarmTime } from '@/services/alarm';
 import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
 import { deleteAlarmSchedule, getAlarmSchedules, updateAlarmSchedule } from '@/storage/alarmScheduleStorage';
-import { WEEKDAY_LABELS, WEEKDAY_ORDER, type AlarmSchedule, type WeekdayKey } from '@/types/alarmSchedule';
+import { getWeekdayLabel, WEEKDAY_ORDER, type AlarmSchedule, type WeekdayKey } from '@/types/alarmSchedule';
 
 export default function AlarmEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [schedule, setSchedule] = useState<AlarmSchedule | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editingDay, setEditingDay] = useState<WeekdayKey | null>(null);
@@ -81,7 +81,7 @@ export default function AlarmEditorScreen() {
       return;
     }
 
-    if (schedule.enabled && enabledDaysCount === 0) {
+    if (schedule.enabled && enabledDaysCount === 0 && !schedule.oneTimeDate) {
       Alert.alert('No active days', 'Enable at least one day or disable this schedule.');
       return;
     }
@@ -175,7 +175,7 @@ export default function AlarmEditorScreen() {
             <View key={day} style={[styles.dayCard, !config.enabled && styles.dayCardDisabled]}>
               <View style={styles.dayRow}>
                 <View>
-                  <Text style={styles.dayTitle}>{WEEKDAY_LABELS[day]}</Text>
+                  <Text style={styles.dayTitle}>{getWeekdayLabel(day, language)}</Text>
                   <Text style={styles.daySubtitle}>{config.enabled ? 'Enabled' : 'Disabled'}</Text>
                 </View>
 

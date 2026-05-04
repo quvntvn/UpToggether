@@ -12,7 +12,7 @@ import {
   skipNextAlarmOccurrence,
   toggleAlarmScheduleEnabled,
 } from '@/storage/alarmScheduleStorage';
-import { WEEKDAY_LABELS, type AlarmSchedule } from '@/types/alarmSchedule';
+import { getWeekdayLabel, type AlarmSchedule } from '@/types/alarmSchedule';
 
 const LABEL_PRESETS = ['Work', 'Gym', 'Study', 'Weekend', 'Custom'];
 
@@ -63,7 +63,7 @@ export default function SetAlarmScreen() {
         </View>
 
         {schedules.map((schedule) => {
-          const days = getEnabledDaysSummary(schedule).map((day) => WEEKDAY_LABELS[day]).join(' ');
+          const days = getEnabledDaysSummary(schedule).map((day) => getWeekdayLabel(day, 'en')).join(' ');
           const next = getNextAlarmOccurrenceRespectingSkip(schedule);
           const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.days.monday.hour, schedule.days.monday.minute);
 

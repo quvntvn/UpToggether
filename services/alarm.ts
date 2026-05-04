@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { isNativeNotificationsSupported } from '@/lib/isNativeNotificationsSupported';
+import { formatAlarmTime } from '@/services/alarmTime';
 
 import {
   DEFAULT_ALARM_SOUND_ID,
@@ -34,9 +35,12 @@ export type AlarmNotificationData = {
   route: '/wake';
   startTime: number;
   alarmTime: string;
+  alarmId?: string;
   scheduleId?: string;
   scheduleLabel?: string;
 };
+
+export { formatAlarmTime } from '@/services/alarmTime';
 
 if (isNativeNotificationsSupported) {
   Notifications.setNotificationHandler({
@@ -62,10 +66,6 @@ export function getNextAlarmDate(hour: number, minute: number) {
   return nextAlarm;
 }
 
-export function formatAlarmTime(hour: number, minute: number) {
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-}
-
 function hasBundledAlarmSound() {
   return Constants.expoConfig?.extra?.alarmSoundBundled === true;
 }
@@ -82,14 +82,17 @@ export function resolveAlarmNotificationSound(soundId: AlarmSoundId = DEFAULT_AL
 
 function getAlarmNotificationData(
   nextAlarmDate: Date,
-  metadata?: { scheduleId?: string; scheduleLabel?: string },
+  metadata?: { alarmId?: string; scheduleId?: string; scheduleLabel?: string },
 ): AlarmNotificationData {
+  const alarmId = metadata?.alarmId ?? metadata?.scheduleId;
+
   return {
     type: 'alarm',
     route: '/wake',
     startTime: nextAlarmDate.getTime(),
     alarmTime: formatAlarmTime(nextAlarmDate.getHours(), nextAlarmDate.getMinutes()),
-    scheduleId: metadata?.scheduleId,
+    alarmId,
+    scheduleId: metadata?.scheduleId ?? alarmId,
     scheduleLabel: metadata?.scheduleLabel,
   };
 }
@@ -162,13 +165,30 @@ export async function cancelScheduledAlarm(notificationId?: string | null) {
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
 
+export async function cancelAllScheduledAlarms() {
+  if (Platform.OS === 'web') {
+    for (const scheduledAlarm of webScheduledAlarms.values()) {
+      clearTimeout(scheduledAlarm.timeoutId);
+    }
+
+    webScheduledAlarms.clear();
+    return;
+  }
+
+  if (!isNativeNotificationsSupported) {
+    return;
+  }
+
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
 function getWebNotificationFallbackId() {
   return `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function showWebAlarmFallback() {
   if (typeof globalThis.alert === 'function') {
-    globalThis.alert('⏰ Alarm!');
+    globalThis.alert('Alarm!');
     return;
   }
 
@@ -180,7 +200,7 @@ export async function scheduleAlarmSafe(
   options: ScheduleAlarmSafeOptions = {},
 ) {
   if (Platform.OS === 'web') {
-    console.warn('Notifications not supported on web');
+    console.warn('[AlarmScheduler] Notifications are not supported on web. Using a local timeout fallback.');
 
     const notificationId = getWebNotificationFallbackId();
     const delay = date.getTime() - Date.now();
@@ -219,7 +239,7 @@ export async function scheduleAlarmSafe(
 export async function scheduleAlarmNotificationAtDate(
   nextAlarmDate: Date,
   soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
-  metadata?: { scheduleId?: string; scheduleLabel?: string },
+  metadata?: { alarmId?: string; scheduleId?: string; scheduleLabel?: string },
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
   const data = getAlarmNotificationData(nextAlarmDate, metadata);
@@ -258,7 +278,6 @@ export async function scheduleAlarmNotificationAtDate(
   }
 }
 
-
 export async function scheduleAlarmNotification(
   hour: number,
   minute: number,
@@ -270,17 +289,27 @@ export async function scheduleAlarmNotification(
 
 export function getWakeRouteParamsFromNotification(
   notification: Notifications.Notification,
-): { startTime: string; alarmTime: string; scheduleId?: string; scheduleLabel?: string } {
+): { startTime: string; alarmTime: string; alarmId?: string; scheduleId?: string; scheduleLabel?: string } {
   const data = notification.request.content.data as Partial<AlarmNotificationData>;
   const notificationDate = new Date(notification.date);
   const fallback = notificationDate.getTime();
+  const alarmId =
+    typeof data.alarmId === 'string'
+      ? data.alarmId
+      : typeof data.scheduleId === 'string'
+        ? data.scheduleId
+        : undefined;
 
   return {
     startTime: String(
       typeof data.startTime === 'number' && Number.isFinite(data.startTime) ? data.startTime : fallback,
     ),
-    alarmTime: typeof data.alarmTime === 'string' ? data.alarmTime : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
-    scheduleId: typeof data.scheduleId === 'string' ? data.scheduleId : undefined,
+    alarmTime:
+      typeof data.alarmTime === 'string'
+        ? data.alarmTime
+        : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
+    alarmId,
+    scheduleId: alarmId,
     scheduleLabel: typeof data.scheduleLabel === 'string' ? data.scheduleLabel : undefined,
   };
 }

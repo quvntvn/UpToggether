@@ -26,8 +26,10 @@ export type AlarmSchedule = {
   label: string;
   enabled: boolean;
   skipNextOccurrence: boolean;
+  skipNextTimestamp: number | null;
   soundId: AlarmSoundId;
   days: WeeklyAlarmDays;
+  oneTimeDate: string | null;
   createdAt: string;
   updatedAt: string;
   nextScheduledTimestamp: number | null;
@@ -43,7 +45,7 @@ export type NextUpcomingSchedule = {
   };
 };
 
-const WEEKDAY_LABELS: Record<Language, Record<WeekdayKey, string>> = {
+export const WEEKDAY_LABELS: Record<Language, Record<WeekdayKey, string>> = {
   en: {
     monday: 'Mon',
     tuesday: 'Tue',

@@ -29,11 +29,16 @@ function formatMilliseconds(milliseconds: number) {
 export default function WakeScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { startTime: startTimeParam, alarmTime: alarmTimeParam, scheduleId: scheduleIdParam } =
-    useLocalSearchParams<{ startTime?: string; alarmTime?: string; scheduleId?: string }>();
+  const {
+    startTime: startTimeParam,
+    alarmTime: alarmTimeParam,
+    alarmId: alarmIdParam,
+    scheduleId: scheduleIdParam,
+  } = useLocalSearchParams<{ startTime?: string; alarmTime?: string; alarmId?: string; scheduleId?: string }>();
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
   const alarmTime = Array.isArray(alarmTimeParam) ? alarmTimeParam[0] : alarmTimeParam;
-  const scheduleId = Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam;
+  const alarmId = Array.isArray(alarmIdParam) ? alarmIdParam[0] : alarmIdParam;
+  const scheduleId = alarmId ?? (Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam);
   const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startTime));
   const [isStopping, setIsStopping] = useState(false);
   const stopInFlightRef = useRef(false);
