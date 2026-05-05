@@ -34,6 +34,7 @@ export type AlarmNotificationData = {
   route: '/wake';
   startTime: number;
   alarmTime: string;
+  alarmId?: string;
   scheduleId?: string;
   scheduleLabel?: string;
 };
@@ -82,14 +83,17 @@ export function resolveAlarmNotificationSound(soundId: AlarmSoundId = DEFAULT_AL
 
 function getAlarmNotificationData(
   nextAlarmDate: Date,
-  metadata?: { scheduleId?: string; scheduleLabel?: string },
+  metadata?: { alarmId?: string; scheduleId?: string; scheduleLabel?: string },
 ): AlarmNotificationData {
+  const alarmId = metadata?.alarmId ?? metadata?.scheduleId;
+
   return {
     type: 'alarm',
     route: '/wake',
     startTime: nextAlarmDate.getTime(),
     alarmTime: formatAlarmTime(nextAlarmDate.getHours(), nextAlarmDate.getMinutes()),
-    scheduleId: metadata?.scheduleId,
+    alarmId,
+    scheduleId: metadata?.scheduleId ?? alarmId,
     scheduleLabel: metadata?.scheduleLabel,
   };
 }
@@ -162,13 +166,30 @@ export async function cancelScheduledAlarm(notificationId?: string | null) {
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
 
+export async function cancelAllScheduledAlarms() {
+  if (Platform.OS === 'web') {
+    for (const scheduledAlarm of webScheduledAlarms.values()) {
+      clearTimeout(scheduledAlarm.timeoutId);
+    }
+
+    webScheduledAlarms.clear();
+    return;
+  }
+
+  if (!isNativeNotificationsSupported) {
+    return;
+  }
+
+  await Notifications.cancelAllScheduledNotificationsAsync();
+}
+
 function getWebNotificationFallbackId() {
   return `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function showWebAlarmFallback() {
   if (typeof globalThis.alert === 'function') {
-    globalThis.alert('⏰ Alarm!');
+    globalThis.alert('Alarm!');
     return;
   }
 
@@ -180,33 +201,28 @@ export async function scheduleAlarmSafe(
   options: ScheduleAlarmSafeOptions = {},
 ) {
   if (Platform.OS === 'web') {
-    console.info(`[Web] Scheduling fallback alarm for ${date.toISOString()}`);
+    console.warn(`[AlarmScheduler] Notifications are not supported on web. Using a local timeout fallback for ${date.toISOString()}.`);
 
     const notificationId = getWebNotificationFallbackId();
-    const delay = date.getTime() - Date.now();
+    const delay = Math.max(0, date.getTime() - Date.now());
+    const timeoutId = setTimeout(() => {
+      webScheduledAlarms.delete(notificationId);
+      showWebAlarmFallback();
+    }, delay);
 
-    if (delay > 0) {
-      const timeoutId = setTimeout(() => {
-        webScheduledAlarms.delete(notificationId);
-        showWebAlarmFallback();
-      }, delay);
-
-      webScheduledAlarms.set(notificationId, {
-        notificationId,
-        scheduledFor: date.getTime(),
-        timeoutId,
-      });
-    }
+    webScheduledAlarms.set(notificationId, {
+      notificationId,
+      scheduledFor: date.getTime(),
+      timeoutId,
+    });
 
     return notificationId;
   }
 
   if (!isNativeNotificationsSupported) {
-    console.warn('Native notifications not supported on this platform');
+    console.warn('Native notifications not supported on this platform.');
     return getWebNotificationFallbackId();
   }
-
-  console.log(`[Native] Scheduling notification for ${date.toISOString()}`);
 
   return Notifications.scheduleNotificationAsync({
     content: {
@@ -226,7 +242,7 @@ export async function scheduleAlarmSafe(
 export async function scheduleAlarmNotificationAtDate(
   nextAlarmDate: Date,
   soundId: AlarmSoundId = DEFAULT_ALARM_SOUND_ID,
-  metadata?: { scheduleId?: string; scheduleLabel?: string },
+  metadata?: { alarmId?: string; scheduleId?: string; scheduleLabel?: string },
 ): Promise<{ notificationId: string; nextAlarmDate: Date; soundId: AlarmSoundId }> {
   const preferredSoundName = resolveAlarmNotificationSound(soundId);
   const data = getAlarmNotificationData(nextAlarmDate, metadata);
@@ -265,7 +281,6 @@ export async function scheduleAlarmNotificationAtDate(
   }
 }
 
-
 export async function scheduleAlarmNotification(
   hour: number,
   minute: number,
@@ -281,14 +296,23 @@ export function getWakeRouteParamsFromNotification(
   const data = notification.request.content.data as Partial<AlarmNotificationData>;
   const notificationDate = new Date(notification.date);
   const fallback = notificationDate.getTime();
+  const alarmId =
+    typeof data.alarmId === 'string'
+      ? data.alarmId
+      : typeof data.scheduleId === 'string'
+        ? data.scheduleId
+        : undefined;
 
   return {
     startTime: String(
       typeof data.startTime === 'number' && Number.isFinite(data.startTime) ? data.startTime : fallback,
     ),
-    alarmTime: typeof data.alarmTime === 'string' ? data.alarmTime : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
-    scheduleId: typeof data.scheduleId === 'string' ? data.scheduleId : undefined,
-    alarmId: typeof data.scheduleId === 'string' ? data.scheduleId : undefined,
+    alarmTime:
+      typeof data.alarmTime === 'string'
+        ? data.alarmTime
+        : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
+    scheduleId: alarmId,
+    alarmId,
     scheduleLabel: typeof data.scheduleLabel === 'string' ? data.scheduleLabel : undefined,
   };
 }

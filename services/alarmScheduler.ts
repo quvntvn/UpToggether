@@ -1,13 +1,20 @@
 import { formatAlarmTime } from '@/services/alarm';
 import { WEEKDAY_ORDER, type AlarmSchedule, type NextUpcomingSchedule, type WeekdayKey } from '@/types/alarmSchedule';
 
-const LOOKAHEAD_DAYS = 14;
+const LOOKAHEAD_DAYS = 15;
 
 type AlarmOccurrence = NextUpcomingSchedule['occurrence'];
 
+type AlarmOccurrenceOptions = {
+  ignoreSkipNext?: boolean;
+  limit?: number;
+};
+
+type NextTriggerOptions = {
+  ignoreSkipNext?: boolean;
+};
+
 function jsDayToWeekdayKey(day: number): WeekdayKey {
-  // In JS, 0 is Sunday, 1 is Monday, etc.
-  // Our WeekdayKey is already 0-6 mapping to Sunday-Saturday.
   return day as WeekdayKey;
 }
 
@@ -17,8 +24,98 @@ function buildCandidateDate(baseDate: Date, hour: number, minute: number) {
   return candidate;
 }
 
-function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()): AlarmOccurrence[] {
+function parseOneTimeDate(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function clearSkipState(schedule: AlarmSchedule): AlarmSchedule {
+  if (!schedule.skipNextOccurrence && schedule.skipNextTimestamp === null) {
+    return schedule;
+  }
+
+  return {
+    ...schedule,
+    skipNextOccurrence: false,
+    skipNextTimestamp: null,
+  };
+}
+
+function buildDerivedOneTimeDate(schedule: AlarmSchedule, fromDate: Date) {
+  if (schedule.repeatDays.length === 0) {
+    const candidate = buildCandidateDate(fromDate, schedule.hour, schedule.minute);
+
+    if (candidate.getTime() <= fromDate.getTime()) {
+      candidate.setDate(candidate.getDate() + 1);
+    }
+
+    return candidate;
+  }
+
+  for (let offset = 0; offset < LOOKAHEAD_DAYS; offset += 1) {
+    const base = new Date(fromDate);
+    base.setDate(fromDate.getDate() + offset);
+
+    const weekday = jsDayToWeekdayKey(base.getDay());
+
+    if (!schedule.repeatDays.includes(weekday)) {
+      continue;
+    }
+
+    const candidate = buildCandidateDate(base, schedule.hour, schedule.minute);
+
+    if (candidate.getTime() <= fromDate.getTime()) {
+      continue;
+    }
+
+    return candidate;
+  }
+
+  return null;
+}
+
+function resolveOneTimeDate(schedule: AlarmSchedule, fromDate: Date) {
+  return parseOneTimeDate(schedule.oneTimeDate) ?? buildDerivedOneTimeDate(schedule, fromDate);
+}
+
+function getCandidateOccurrences(
+  schedule: AlarmSchedule,
+  fromDate = new Date(),
+  options: AlarmOccurrenceOptions = {},
+): AlarmOccurrence[] {
   if (!schedule.enabled) {
+    return [];
+  }
+
+  const limit = options.limit ?? 1;
+  const skipTimestamp =
+    !options.ignoreSkipNext && schedule.skipNextOccurrence ? schedule.skipNextTimestamp : null;
+
+  if (schedule.isOneTime) {
+    const oneTimeDate = resolveOneTimeDate(schedule, fromDate);
+
+    if (!oneTimeDate || oneTimeDate.getTime() <= fromDate.getTime()) {
+      return [];
+    }
+
+    if (skipTimestamp !== null && oneTimeDate.getTime() === skipTimestamp) {
+      return [];
+    }
+
+    return [
+      {
+        date: oneTimeDate,
+        day: jsDayToWeekdayKey(oneTimeDate.getDay()),
+        formattedTime: formatAlarmTime(oneTimeDate.getHours(), oneTimeDate.getMinutes()),
+      },
+    ];
+  }
+
+  if (schedule.repeatDays.length === 0) {
     return [];
   }
 
@@ -30,23 +127,17 @@ function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()
 
     const weekday = jsDayToWeekdayKey(base.getDay());
 
-    // Check if this weekday is in repeatDays
-    const isRepeatDay = schedule.repeatDays.includes(weekday);
-
-    // If it's a one-time alarm, it only fires on the first possible day (usually today or tomorrow)
-    // if repeatDays is empty, or if specifically matched.
-    // For simplicity, if one-time and no repeatDays, we allow any day until it fires.
-    if (!schedule.isOneTime && !isRepeatDay) {
+    if (!schedule.repeatDays.includes(weekday)) {
       continue;
-    }
-
-    if (schedule.isOneTime && schedule.repeatDays.length > 0 && !isRepeatDay) {
-        continue;
     }
 
     const candidate = buildCandidateDate(base, schedule.hour, schedule.minute);
 
     if (candidate.getTime() <= fromDate.getTime()) {
+      continue;
+    }
+
+    if (skipTimestamp !== null && candidate.getTime() === skipTimestamp) {
       continue;
     }
 
@@ -56,11 +147,7 @@ function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()
       formattedTime: formatAlarmTime(schedule.hour, schedule.minute),
     });
 
-    if (occurrences.length >= 2) {
-      break;
-    }
-
-    if (schedule.isOneTime) {
+    if (occurrences.length >= limit) {
       break;
     }
   }
@@ -68,36 +155,115 @@ function findCandidateOccurrences(schedule: AlarmSchedule, fromDate = new Date()
   return occurrences;
 }
 
+export function normalizeAlarmSchedulingState(
+  schedule: AlarmSchedule,
+  fromDate = new Date(),
+): AlarmSchedule {
+  let nextSchedule = schedule;
+
+  if (!nextSchedule.enabled) {
+    return clearSkipState(nextSchedule);
+  }
+
+  if (!nextSchedule.isOneTime && nextSchedule.oneTimeDate !== null) {
+    nextSchedule = {
+      ...nextSchedule,
+      oneTimeDate: null,
+    };
+  }
+
+  if (nextSchedule.isOneTime) {
+    const oneTimeDate = resolveOneTimeDate(nextSchedule, fromDate);
+
+    if (!oneTimeDate) {
+      return {
+        ...clearSkipState(nextSchedule),
+        enabled: false,
+        oneTimeDate: null,
+      };
+    }
+
+    if (nextSchedule.oneTimeDate !== oneTimeDate.toISOString()) {
+      nextSchedule = {
+        ...nextSchedule,
+        oneTimeDate: oneTimeDate.toISOString(),
+      };
+    }
+
+    if (oneTimeDate.getTime() <= fromDate.getTime()) {
+      return {
+        ...clearSkipState(nextSchedule),
+        enabled: false,
+        oneTimeDate: null,
+      };
+    }
+  }
+
+  if (!nextSchedule.skipNextOccurrence) {
+    if (nextSchedule.skipNextTimestamp === null) {
+      return nextSchedule;
+    }
+
+    return {
+      ...nextSchedule,
+      skipNextTimestamp: null,
+    };
+  }
+
+  if (nextSchedule.isOneTime) {
+    return {
+      ...nextSchedule,
+      enabled: false,
+      skipNextOccurrence: false,
+      skipNextTimestamp: null,
+      oneTimeDate: null,
+    };
+  }
+
+  if (nextSchedule.skipNextTimestamp !== null) {
+    if (nextSchedule.skipNextTimestamp > fromDate.getTime()) {
+      return nextSchedule;
+    }
+
+    return clearSkipState(nextSchedule);
+  }
+
+  const nextTriggerWithoutSkip = getNextTriggerDate(nextSchedule, fromDate, {
+    ignoreSkipNext: true,
+  });
+
+  if (!nextTriggerWithoutSkip) {
+    return clearSkipState(nextSchedule);
+  }
+
+  return {
+    ...nextSchedule,
+    skipNextTimestamp: nextTriggerWithoutSkip.getTime(),
+  };
+}
+
 export function getNextAlarmOccurrenceRespectingSkip(
   schedule: AlarmSchedule,
   fromDate = new Date(),
 ): AlarmOccurrence | null {
-  const occurrences = findCandidateOccurrences(schedule, fromDate);
-
-  if (occurrences.length === 0) {
-    return null;
-  }
-
-  if (schedule.isOneTime) {
-    // For one-time alarms, if skipNextOccurrence is true, it won't fire at all
-    return schedule.skipNextOccurrence ? null : occurrences[0];
-  }
-
-  if (!schedule.skipNextOccurrence) {
-    return occurrences[0] ?? null;
-  }
-
-  // For repeating alarms, skipNextOccurrence returns the second occurrence
-  return occurrences[1] ?? null;
+  const normalizedSchedule = normalizeAlarmSchedulingState(schedule, fromDate);
+  return getCandidateOccurrences(normalizedSchedule, fromDate, { limit: 1 })[0] ?? null;
 }
 
-/**
- * Robust engine to get the next trigger date for an alarm.
- * Handles repeat days, skipNext, past time today, and one-time alarms.
- */
-export function getNextTriggerDate(alarm: AlarmSchedule, fromDate = new Date()): Date | null {
-  const occurrence = getNextAlarmOccurrenceRespectingSkip(alarm, fromDate);
-  return occurrence?.date ?? null;
+export function getNextTriggerDate(
+  schedule: AlarmSchedule,
+  fromDate = new Date(),
+  options: NextTriggerOptions = {},
+): Date | null {
+  const scheduleForLookup = options.ignoreSkipNext
+    ? schedule
+    : normalizeAlarmSchedulingState(schedule, fromDate);
+  const nextOccurrence = getCandidateOccurrences(scheduleForLookup, fromDate, {
+    ignoreSkipNext: options.ignoreSkipNext,
+    limit: 1,
+  })[0];
+
+  return nextOccurrence?.date ?? null;
 }
 
 export function getNextUpcomingSchedule(
@@ -106,11 +272,17 @@ export function getNextUpcomingSchedule(
 ): NextUpcomingSchedule | null {
   const candidates = schedules
     .map((schedule) => {
-      const occurrence = getNextAlarmOccurrenceRespectingSkip(schedule, fromDate);
+      const normalizedSchedule = normalizeAlarmSchedulingState(schedule, fromDate);
+      const occurrence = getCandidateOccurrences(normalizedSchedule, fromDate, { limit: 1 })[0];
+
       if (!occurrence) {
         return null;
       }
-      return { schedule, occurrence };
+
+      return {
+        schedule: normalizedSchedule,
+        occurrence,
+      };
     })
     .filter((item): item is NextUpcomingSchedule => Boolean(item));
 
@@ -123,9 +295,9 @@ export function getNextUpcomingSchedule(
 }
 
 export function getEnabledDaysSummary(schedule: AlarmSchedule) {
-  return [...schedule.repeatDays].sort((a, b) => {
-      // Sort according to WEEKDAY_ORDER [1,2,3,4,5,6,0]
-      const order = [1, 2, 3, 4, 5, 6, 0];
-      return order.indexOf(a) - order.indexOf(b);
-  });
+  if (schedule.isOneTime && schedule.repeatDays.length === 0) {
+    return [];
+  }
+
+  return WEEKDAY_ORDER.filter((day) => schedule.repeatDays.includes(day));
 }

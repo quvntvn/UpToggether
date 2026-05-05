@@ -10,6 +10,17 @@ import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
 import { deleteAlarmSchedule, getAlarmSchedules, updateAlarmSchedule } from '@/storage/alarmScheduleStorage';
 import { getWeekdayLabel, WEEKDAY_ORDER, type AlarmSchedule, type WeekdayKey } from '@/types/alarmSchedule';
 
+function resetComputedScheduling(schedule: AlarmSchedule): AlarmSchedule {
+  return {
+    ...schedule,
+    skipNextOccurrence: false,
+    skipNextTimestamp: null,
+    oneTimeDate: schedule.isOneTime ? null : schedule.oneTimeDate,
+    nextScheduledTimestamp: null,
+    notificationId: undefined,
+  };
+}
+
 export default function AlarmEditorScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -23,6 +34,7 @@ export default function AlarmEditorScreen() {
     async function loadSchedule() {
       const schedules = await getAlarmSchedules();
       const found = schedules.find((item) => item.id === id);
+
       if (found) {
         setSchedule(found);
         const date = new Date();
@@ -42,6 +54,7 @@ export default function AlarmEditorScreen() {
     if (!schedule) {
       return;
     }
+
     const base = new Date();
     base.setHours(schedule.hour, schedule.minute, 0, 0);
     setPickerDate(base);
@@ -61,11 +74,12 @@ export default function AlarmEditorScreen() {
         return previous;
       }
 
-      return {
+      return resetComputedScheduling({
         ...previous,
         hour: selectedDate.getHours(),
         minute: selectedDate.getMinutes(),
-      };
+        oneTimeDate: null,
+      });
     });
   };
 
@@ -77,13 +91,14 @@ export default function AlarmEditorScreen() {
 
       const currentDays = previous.repeatDays ?? [];
       const nextDays = currentDays.includes(day)
-        ? currentDays.filter((d) => d !== day)
-        : [...currentDays, day];
+        ? currentDays.filter((item) => item !== day)
+        : [...currentDays, day].sort((left, right) => WEEKDAY_ORDER.indexOf(left) - WEEKDAY_ORDER.indexOf(right));
 
-      return {
+      return resetComputedScheduling({
         ...previous,
         repeatDays: nextDays,
-      };
+        oneTimeDate: null,
+      });
     });
   };
 
@@ -167,7 +182,9 @@ export default function AlarmEditorScreen() {
           <Text style={styles.sectionTitle}>Alarm label</Text>
           <TextInput
             value={schedule.label}
-            onChangeText={(value) => setSchedule((previous) => (previous ? { ...previous, label: value } : previous))}
+            onChangeText={(value) =>
+              setSchedule((previous) => (previous ? { ...previous, label: value } : previous))
+            }
             placeholder="Work"
             placeholderTextColor={colors.mutedText}
             style={styles.input}
@@ -175,29 +192,49 @@ export default function AlarmEditorScreen() {
 
           <Pressable
             style={[styles.toggleButton, schedule.enabled ? styles.toggleOn : styles.toggleOff]}
-            onPress={() => setSchedule((previous) => (previous ? { ...previous, enabled: !previous.enabled } : previous))}>
+            onPress={() =>
+              setSchedule((previous) =>
+                previous
+                  ? resetComputedScheduling({
+                      ...previous,
+                      enabled: !previous.enabled,
+                      oneTimeDate: previous.isOneTime ? null : previous.oneTimeDate,
+                    })
+                  : previous,
+              )
+            }
+          >
             <Text style={styles.toggleButtonText}>{schedule.enabled ? 'Schedule Enabled' : 'Schedule Disabled'}</Text>
           </Pressable>
         </View>
 
         <View style={styles.topCard}>
-            <Text style={styles.sectionTitle}>Time</Text>
-            <Pressable
-                style={styles.timeButton}
-                onPress={openTimePicker}>
-                <Text style={styles.timeButtonText}>{timeLabel}</Text>
-                <Text style={styles.timeButtonHelper}>Tap to change</Text>
-            </Pressable>
+          <Text style={styles.sectionTitle}>Time</Text>
+          <Pressable style={styles.timeButton} onPress={openTimePicker}>
+            <Text style={styles.timeButtonText}>{timeLabel}</Text>
+            <Text style={styles.timeButtonHelper}>Tap to change</Text>
+          </Pressable>
 
-            <View style={styles.row}>
-                <Pressable
-                    style={[styles.checkOption, schedule.isOneTime && styles.checkOptionActive]}
-                    onPress={() => setSchedule(prev => prev ? { ...prev, isOneTime: !prev.isOneTime } : prev)}>
-                    <Text style={[styles.checkOptionText, schedule.isOneTime && styles.checkOptionTextActive]}>
-                        One-time alarm
-                    </Text>
-                </Pressable>
-            </View>
+          <View style={styles.row}>
+            <Pressable
+              style={[styles.checkOption, schedule.isOneTime && styles.checkOptionActive]}
+              onPress={() =>
+                setSchedule((previous) =>
+                  previous
+                    ? resetComputedScheduling({
+                        ...previous,
+                        isOneTime: !previous.isOneTime,
+                        oneTimeDate: null,
+                      })
+                    : previous,
+                )
+              }
+            >
+              <Text style={[styles.checkOptionText, schedule.isOneTime && styles.checkOptionTextActive]}>
+                One-time alarm
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.topCard}>
@@ -205,11 +242,13 @@ export default function AlarmEditorScreen() {
           <View style={styles.weekdayContainer}>
             {WEEKDAY_ORDER.map((day) => {
               const isActive = schedule.repeatDays?.includes(day);
+
               return (
                 <Pressable
                   key={day}
                   style={[styles.weekdayCircle, isActive && styles.weekdayCircleActive]}
-                  onPress={() => toggleDay(day)}>
+                  onPress={() => toggleDay(day)}
+                >
                   <Text style={[styles.weekdayText, isActive && styles.weekdayTextActive]}>
                     {getWeekdayLabel(day, language).substring(0, 1)}
                   </Text>
@@ -222,7 +261,11 @@ export default function AlarmEditorScreen() {
           </Text>
         </View>
 
-        <Pressable style={[styles.primaryButton, isSaving && styles.disabledButton]} onPress={() => void handleSaveAlarm()} disabled={isSaving}>
+        <Pressable
+          style={[styles.primaryButton, isSaving && styles.disabledButton]}
+          onPress={() => void handleSaveAlarm()}
+          disabled={isSaving}
+        >
           <Text style={styles.primaryButtonText}>{isSaving ? t('setAlarm.saving') : 'Save Alarm'}</Text>
         </Pressable>
 

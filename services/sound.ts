@@ -1,6 +1,15 @@
 import { Audio, type AVPlaybackSource, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 
-let alarmSound: Audio.Sound | null = null;
+type AlarmSoundInstance = {
+  getStatusAsync: () => Promise<{ isLoaded?: boolean; isPlaying?: boolean }>;
+  setIsLoopingAsync: (isLooping: boolean) => Promise<unknown>;
+  setPositionAsync: (positionMillis: number) => Promise<unknown>;
+  playAsync: () => Promise<unknown>;
+  stopAsync: () => Promise<unknown>;
+  unloadAsync: () => Promise<unknown>;
+};
+
+let alarmSound: AlarmSoundInstance | null = null;
 let alarmSource: AVPlaybackSource | null | undefined;
 
 async function configureAudioMode() {
@@ -58,7 +67,7 @@ export async function playAlarmSound() {
       progressUpdateIntervalMillis: 250,
     });
 
-    alarmSound = sound;
+    alarmSound = sound as unknown as AlarmSoundInstance;
     return true;
   } catch (error) {
     console.warn('Failed to play alarm sound. Continuing without audio.', error);

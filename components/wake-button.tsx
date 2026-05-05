@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
+  cancelAnimation,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  runOnJS,
-  Easing,
-  cancelAnimation,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/lib/theme';
 
@@ -25,26 +24,34 @@ export function WakeButton({ onStop, disabled }: WakeButtonProps) {
   const scale = useSharedValue(1);
 
   const handleComplete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onStop();
   };
 
   const gesture = Gesture.Tap()
     .maxDuration(HOLD_DURATION + 1000)
     .onBegin(() => {
-      if (disabled) return;
+      if (disabled) {
+        return;
+      }
+
       scale.value = withTiming(0.9, { duration: 200 });
-      progress.value = withTiming(1, {
-        duration: HOLD_DURATION,
-        easing: Easing.linear,
-      }, (finished) => {
-        if (finished) {
-          runOnJS(handleComplete)();
-        }
-      });
+      progress.value = withTiming(
+        1,
+        {
+          duration: HOLD_DURATION,
+          easing: Easing.linear,
+        },
+        (finished) => {
+          if (finished) {
+            runOnJS(handleComplete)();
+          }
+        },
+      );
     })
     .onFinalize(() => {
       scale.value = withTiming(1, { duration: 200 });
+
       if (progress.value < 1) {
         cancelAnimation(progress);
         progress.value = withTiming(0, { duration: 300 });

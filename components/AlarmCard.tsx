@@ -23,22 +23,16 @@ export const AlarmCard: React.FC<AlarmCardProps> = ({ alarm, onToggle, onPress }
   return (
     <Pressable
       onPress={() => onPress(alarm.id)}
-      style={({ pressed }) => [
-        styles.container,
-        !alarm.enabled && styles.disabled,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.container, !alarm.enabled && styles.disabled, pressed && styles.pressed]}
     >
       <View style={styles.leftContent}>
         <Text style={styles.time}>{displayTime}</Text>
         <View style={styles.infoContainer}>
           <Text style={styles.label}>{alarm.label}</Text>
-          <Text style={styles.dot}>•</Text>
+          <Text style={styles.separator}>-</Text>
           <Text style={styles.repeatLabel}>{readableLabel}</Text>
         </View>
-        {alarm.repeatDays.length > 0 && !alarm.isOneTime && (
-          <Text style={styles.shortDays}>{shortDays}</Text>
-        )}
+        {alarm.repeatDays.length > 0 && !alarm.isOneTime ? <Text style={styles.shortDays}>{shortDays}</Text> : null}
       </View>
 
       <Switch
@@ -88,7 +82,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.secondaryText,
   },
-  dot: {
+  separator: {
     fontSize: 14,
     color: colors.mutedText,
     marginHorizontal: 6,

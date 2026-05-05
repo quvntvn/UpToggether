@@ -51,7 +51,10 @@ export default function SetAlarmScreen() {
     await loadSchedules();
   };
 
-  const scheduleCountLabel = useMemo(() => `${schedules.length} schedule${schedules.length === 1 ? '' : 's'}`, [schedules.length]);
+  const scheduleCountLabel = useMemo(
+    () => `${schedules.length} schedule${schedules.length === 1 ? '' : 's'}`,
+    [schedules.length],
+  );
 
   return (
     <View style={styles.container}>
@@ -75,7 +78,9 @@ export default function SetAlarmScreen() {
               style={[styles.scheduleCard, !schedule.enabled && styles.disabledCard]}
               onPress={() => router.push({ pathname: '/alarm/[id]', params: { id: schedule.id } })}>
               <Text style={styles.scheduleTitle}>{schedule.label}</Text>
-              <Text style={styles.scheduleSummary}>{days || 'No active days'} — {displayTime}</Text>
+              <Text style={styles.scheduleSummary}>
+                {days || 'No active days'} — {displayTime}
+              </Text>
               {schedule.skipNextOccurrence ? <Text style={styles.skipInfo}>Next occurrence skipped once</Text> : null}
 
               <View style={styles.rowActions}>

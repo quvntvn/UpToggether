@@ -10,7 +10,9 @@ export type AlarmSchedule = {
   label: string;
   enabled: boolean;
   skipNextOccurrence: boolean;
+  skipNextTimestamp: number | null;
   isOneTime: boolean;
+  oneTimeDate: string | null;
   soundId: AlarmSoundId;
   hour: number;
   minute: number;

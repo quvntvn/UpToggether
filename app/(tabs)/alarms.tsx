@@ -32,14 +32,14 @@ export default function AlarmsTabScreen() {
   const copy =
     language === 'fr'
       ? {
-          labelPresets: ['Boulot', 'Salle', 'Études', 'Week-end', 'Perso'],
-          fallbackLabel: 'Réveil',
+          labelPresets: ['Boulot', 'Salle', 'Etudes', 'Week-end', 'Perso'],
+          fallbackLabel: 'Reveil',
           customLabel: 'Perso',
-          customAlarmLabel: 'Réveil perso',
+          customAlarmLabel: 'Reveil perso',
           sectionTitle: 'Alarmes',
-          helperText: 'Gérez vos programmations et restez synchronisé avec votre squad.',
+          helperText: 'Gerez vos programmations et restez synchronise avec votre squad.',
           create: 'Ajouter une alarme',
-          emptyState: 'Aucune alarme programmée',
+          emptyState: 'Aucune alarme programmee',
         }
       : {
           labelPresets: ['Work', 'Gym', 'Study', 'Weekend', 'Custom'],
@@ -93,13 +93,7 @@ export default function AlarmsTabScreen() {
       <FlatList
         data={schedules}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <AlarmCard
-            alarm={item}
-            onToggle={handleToggleEnabled}
-            onPress={handlePressAlarm}
-          />
-        )}
+        renderItem={({ item }) => <AlarmCard alarm={item} onToggle={handleToggleEnabled} onPress={handlePressAlarm} />}
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmpty}

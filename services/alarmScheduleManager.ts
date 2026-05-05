@@ -1,10 +1,18 @@
-import { cancelScheduledAlarm, requestAlarmPermissions, scheduleAlarmNotificationAtDate } from '@/services/alarm';
-import { getNextUpcomingSchedule, getNextTriggerDate } from '@/services/alarmScheduler';
+import {
+  cancelAllScheduledAlarms,
+  requestAlarmPermissions,
+  scheduleAlarmNotificationAtDate,
+} from '@/services/alarm';
+import { getNextUpcomingSchedule, getNextTriggerDate, normalizeAlarmSchedulingState } from '@/services/alarmScheduler';
 import {
   getAlarmSchedules,
   saveAlarmSchedules,
 } from '@/storage/alarmScheduleStorage';
 import type { AlarmSchedule } from '@/types/alarmSchedule';
+
+type SyncAlarmSchedulesOptions = {
+  requirePermissions?: boolean;
+};
 
 function clearSchedulingFields(schedule: AlarmSchedule): AlarmSchedule {
   return {
@@ -14,62 +22,61 @@ function clearSchedulingFields(schedule: AlarmSchedule): AlarmSchedule {
   };
 }
 
-/**
- * Reschedules all alarms:
- * - Cancels all existing notifications
- * - Schedules the next occurrence for each enabled alarm
- * - Attaches alarmId in data
- * - Logs every scheduled alarm with date
- */
+function prepareAlarmForScheduling(schedule: AlarmSchedule, fromDate: Date) {
+  return clearSchedulingFields(normalizeAlarmSchedulingState(schedule, fromDate));
+}
+
+function logScheduledAlarm(schedule: AlarmSchedule, nextTriggerDate: Date, notificationId: string) {
+  console.info(
+    `[AlarmScheduler] Scheduled "${schedule.label}" (${schedule.id}) for ${nextTriggerDate.toISOString()} with notification ${notificationId}.`,
+  );
+}
+
 export async function rescheduleAllAlarms(schedules: AlarmSchedule[]): Promise<AlarmSchedule[]> {
-  console.log('Rescheduling all alarms...');
-
-  // 1. Cancel all existing notifications
-  await Promise.all(schedules.map((s) => cancelScheduledAlarm(s.notificationId)));
-
   const now = new Date();
-  const updatedSchedules = [...schedules];
+  const preparedSchedules = schedules.map((schedule) => prepareAlarmForScheduling(schedule, now));
 
-  // 2. Schedule only the next occurrence for EACH enabled alarm
-  for (let i = 0; i < updatedSchedules.length; i++) {
-    const schedule = updatedSchedules[i];
-    if (!schedule.enabled) {
-      updatedSchedules[i] = clearSchedulingFields(schedule);
-      continue;
-    }
+  await cancelAllScheduledAlarms();
 
-    const nextTriggerDate = getNextTriggerDate(schedule, now);
+  const updatedSchedules = await Promise.all(
+    preparedSchedules.map(async (schedule) => {
+      if (!schedule.enabled) {
+        return schedule;
+      }
 
-    if (nextTriggerDate) {
-      console.log(`Scheduling alarm "${schedule.label}" (${schedule.id}) for ${nextTriggerDate.toISOString()}`);
+      const nextTriggerDate = getNextTriggerDate(schedule, now);
+
+      if (!nextTriggerDate) {
+        return clearSchedulingFields(schedule);
+      }
 
       const { notificationId } = await scheduleAlarmNotificationAtDate(
         nextTriggerDate,
         schedule.soundId,
         {
+          alarmId: schedule.id,
           scheduleId: schedule.id,
           scheduleLabel: schedule.label,
         },
       );
 
-      updatedSchedules[i] = {
+      logScheduledAlarm(schedule, nextTriggerDate, notificationId);
+
+      return {
         ...schedule,
         nextScheduledTimestamp: nextTriggerDate.getTime(),
         notificationId,
       };
-    } else {
-      updatedSchedules[i] = clearSchedulingFields(schedule);
-    }
-  }
+    }),
+  );
 
-  await saveAlarmSchedules(updatedSchedules);
   return updatedSchedules;
 }
 
-export async function syncAlarmSchedules(options?: { requirePermissions?: boolean }) {
+export async function syncAlarmSchedules(options: SyncAlarmSchedulesOptions = {}) {
   const schedules = await getAlarmSchedules();
 
-  if (options?.requirePermissions) {
+  if (options.requirePermissions) {
     const permissionsGranted = await requestAlarmPermissions();
     if (!permissionsGranted) {
       const cleaned = schedules.map(clearSchedulingFields);
@@ -78,11 +85,11 @@ export async function syncAlarmSchedules(options?: { requirePermissions?: boolea
   }
 
   const syncedSchedules = await rescheduleAllAlarms(schedules);
-  const nextUpcoming = getNextUpcomingSchedule(syncedSchedules, new Date());
+  await saveAlarmSchedules(syncedSchedules);
 
   return {
     schedules: syncedSchedules,
-    nextUpcoming,
+    nextUpcoming: getNextUpcomingSchedule(syncedSchedules, new Date()),
     permissionsGranted: true,
   };
 }

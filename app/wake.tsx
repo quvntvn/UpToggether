@@ -2,20 +2,24 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, SafeAreaView, StyleSheet, Text, Vibration, View } from 'react-native';
 
+import { WakeButton } from '@/components/wake-button';
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
-import { playAlarmSound, stopAlarmSound } from '@/services/sound';
 import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
+import { playAlarmSound, stopAlarmSound } from '@/services/sound';
 import { clearSkippedNextOccurrence, getAlarmSchedules } from '@/storage/alarmScheduleStorage';
 import { saveWakeResult } from '@/storage/wakeResultsStorage';
 import { formatScheduledTime, getMockPercentile } from '@/utils/time';
-import { WakeButton } from '@/components/wake-button';
 
 function getStartTime(startTimeParam: string | string[] | undefined) {
   const rawValue = Array.isArray(startTimeParam) ? startTimeParam[0] : startTimeParam;
   const parsedValue = rawValue ? Number(rawValue) : NaN;
 
   return Number.isFinite(parsedValue) ? parsedValue : Date.now();
+}
+
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 export default function WakeScreen() {
@@ -25,7 +29,7 @@ export default function WakeScreen() {
     startTime: startTimeParam,
     alarmTime: alarmTimeParam,
     scheduleId: scheduleIdParam,
-    alarmId: alarmIdParam
+    alarmId: alarmIdParam,
   } = useLocalSearchParams<{
     startTime?: string;
     alarmTime?: string;
@@ -34,17 +38,16 @@ export default function WakeScreen() {
   }>();
 
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
-  const alarmTime = Array.isArray(alarmTimeParam) ? alarmTimeParam[0] : alarmTimeParam;
-  const scheduleId = alarmIdParam ?? (Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam);
+  const alarmTime = getFirstParam(alarmTimeParam);
+  const scheduleId = getFirstParam(alarmIdParam) ?? getFirstParam(scheduleIdParam);
 
   const [isStopping, setIsStopping] = useState(false);
   const stopInFlightRef = useRef(false);
 
   useEffect(() => {
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => true);
-
-    // Pattern: 1s vibrate, 0.5s pause
     const vibrationPattern = [0, 1000, 500];
+
     Vibration.vibrate(vibrationPattern, true);
 
     void playAlarmSound().then((didPlay) => {
@@ -122,12 +125,12 @@ export default function WakeScreen() {
 
       <View style={styles.content}>
         <View style={styles.header}>
-            <Text style={styles.alarmTimeText}>{alarmTime || '--:--'}</Text>
-            <Text style={styles.wakeUpText}>WAKE UP</Text>
+          <Text style={styles.alarmTimeText}>{alarmTime || '--:--'}</Text>
+          <Text style={styles.wakeUpText}>WAKE UP</Text>
         </View>
 
         <View style={styles.footer}>
-            <WakeButton onStop={handleStop} disabled={isStopping} />
+          <WakeButton onStop={handleStop} disabled={isStopping} />
         </View>
       </View>
     </SafeAreaView>
