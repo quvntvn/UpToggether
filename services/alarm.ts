@@ -3,7 +3,6 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { isNativeNotificationsSupported } from '@/lib/isNativeNotificationsSupported';
-import { formatAlarmTime } from '@/services/alarmTime';
 
 import {
   DEFAULT_ALARM_SOUND_ID,
@@ -40,8 +39,6 @@ export type AlarmNotificationData = {
   scheduleLabel?: string;
 };
 
-export { formatAlarmTime } from '@/services/alarmTime';
-
 if (isNativeNotificationsSupported) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -64,6 +61,10 @@ export function getNextAlarmDate(hour: number, minute: number) {
   }
 
   return nextAlarm;
+}
+
+export function formatAlarmTime(hour: number, minute: number) {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 function hasBundledAlarmSound() {
@@ -200,7 +201,7 @@ export async function scheduleAlarmSafe(
   options: ScheduleAlarmSafeOptions = {},
 ) {
   if (Platform.OS === 'web') {
-    console.warn('[AlarmScheduler] Notifications are not supported on web. Using a local timeout fallback.');
+    console.warn(`[AlarmScheduler] Notifications are not supported on web. Using a local timeout fallback for ${date.toISOString()}.`);
 
     const notificationId = getWebNotificationFallbackId();
     const delay = date.getTime() - Date.now();
@@ -219,6 +220,11 @@ export async function scheduleAlarmSafe(
     }
 
     return notificationId;
+  }
+
+  if (!isNativeNotificationsSupported) {
+    console.warn('Native notifications not supported on this platform.');
+    return getWebNotificationFallbackId();
   }
 
   return Notifications.scheduleNotificationAsync({
@@ -289,7 +295,7 @@ export async function scheduleAlarmNotification(
 
 export function getWakeRouteParamsFromNotification(
   notification: Notifications.Notification,
-): { startTime: string; alarmTime: string; alarmId?: string; scheduleId?: string; scheduleLabel?: string } {
+): { startTime: string; alarmTime: string; scheduleId?: string; alarmId?: string; scheduleLabel?: string } {
   const data = notification.request.content.data as Partial<AlarmNotificationData>;
   const notificationDate = new Date(notification.date);
   const fallback = notificationDate.getTime();
@@ -308,8 +314,8 @@ export function getWakeRouteParamsFromNotification(
       typeof data.alarmTime === 'string'
         ? data.alarmTime
         : formatAlarmTime(notificationDate.getHours(), notificationDate.getMinutes()),
-    alarmId,
     scheduleId: alarmId,
+    alarmId,
     scheduleLabel: typeof data.scheduleLabel === 'string' ? data.scheduleLabel : undefined,
   };
 }

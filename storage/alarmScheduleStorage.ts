@@ -6,7 +6,6 @@ import {
   WEEKDAY_ORDER,
   type AlarmSchedule,
   type WeekdayKey,
-  type WeeklyAlarmDays,
 } from '@/types/alarmSchedule';
 
 const ALARM_SCHEDULES_STORAGE_KEY = 'uptogether.alarmSchedules';
@@ -20,7 +19,9 @@ type LegacyAlarmShape = {
   soundId?: AlarmSoundId;
   skipNextOccurrence?: boolean;
   skipNextTimestamp?: number;
+  isOneTime?: boolean;
   oneTimeDate?: string;
+  repeatDays?: number[];
   nextScheduledTimestamp?: number;
   notificationId?: string;
 };
@@ -37,42 +38,88 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function buildDefaultDays(hour = 7, minute = 0): WeeklyAlarmDays {
-  return {
-    monday: { enabled: true, hour, minute },
-    tuesday: { enabled: true, hour, minute },
-    wednesday: { enabled: true, hour, minute },
-    thursday: { enabled: true, hour, minute },
-    friday: { enabled: true, hour, minute },
-    saturday: { enabled: false, hour, minute },
-    sunday: { enabled: false, hour, minute },
-  };
+function isWeekdayKey(value: unknown): value is WeekdayKey {
+  return typeof value === 'number' && WEEKDAY_ORDER.includes(value as WeekdayKey);
 }
 
-function normalizeDay(source: unknown, fallback: { enabled: boolean; hour: number; minute: number }) {
-  const candidate = typeof source === 'object' && source !== null ? (source as Partial<{ enabled: boolean; hour: number; minute: number }>) : {};
-  return {
-    enabled: typeof candidate.enabled === 'boolean' ? candidate.enabled : fallback.enabled,
-    hour: Number.isInteger(candidate.hour) ? clampNumber(Number(candidate.hour), 0, 23) : fallback.hour,
-    minute: Number.isInteger(candidate.minute) ? clampNumber(Number(candidate.minute), 0, 59) : fallback.minute,
-  };
+function normalizeRepeatDays(raw: unknown) {
+  if (!Array.isArray(raw)) {
+    return [] as WeekdayKey[];
+  }
+
+  const unique = new Set<WeekdayKey>();
+
+  for (const value of raw) {
+    if (isWeekdayKey(value)) {
+      unique.add(value);
+    }
+  }
+
+  return WEEKDAY_ORDER.filter((day) => unique.has(day));
+}
+
+function parseOneTimeDate(value: unknown) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 
 function normalizeSchedule(raw: unknown, fallbackLabel = 'Alarm'): AlarmSchedule {
-  const fallbackDays = buildDefaultDays();
-  const candidate = typeof raw === 'object' && raw !== null ? (raw as Partial<AlarmSchedule>) : {};
+  const candidate = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
+  const isOneTime = typeof candidate.isOneTime === 'boolean' ? candidate.isOneTime : false;
+  const hasExplicitRepeatDays = Array.isArray(candidate.repeatDays);
 
-  const days = WEEKDAY_ORDER.reduce((acc, day) => {
-    acc[day] = normalizeDay(candidate.days?.[day], fallbackDays[day]);
-    return acc;
-  }, {} as WeeklyAlarmDays);
+  let hour = Number.isInteger(candidate.hour) ? clampNumber(Number(candidate.hour), 0, 23) : 7;
+  let minute = Number.isInteger(candidate.minute) ? clampNumber(Number(candidate.minute), 0, 59) : 0;
+  let repeatDays = hasExplicitRepeatDays ? normalizeRepeatDays(candidate.repeatDays) : [];
+
+  if (!hasExplicitRepeatDays && candidate.days && typeof candidate.days === 'object') {
+    const oldDays = candidate.days as Record<string, unknown>;
+    const oldKeys: Array<[string, WeekdayKey]> = [
+      ['monday', 1],
+      ['tuesday', 2],
+      ['wednesday', 3],
+      ['thursday', 4],
+      ['friday', 5],
+      ['saturday', 6],
+      ['sunday', 0],
+    ];
+
+    const enabledDays: WeekdayKey[] = [];
+    let firstFound = false;
+
+    for (const [key, weekday] of oldKeys) {
+      const config = oldDays[key];
+
+      if (!config || typeof config !== 'object') {
+        continue;
+      }
+
+      const dayConfig = config as Partial<{ enabled: boolean; hour: number; minute: number }>;
+
+      if (!firstFound) {
+        hour = Number.isInteger(dayConfig.hour) ? clampNumber(Number(dayConfig.hour), 0, 23) : hour;
+        minute = Number.isInteger(dayConfig.minute) ? clampNumber(Number(dayConfig.minute), 0, 59) : minute;
+        firstFound = true;
+      }
+
+      if (dayConfig.enabled) {
+        enabledDays.push(weekday);
+      }
+    }
+
+    repeatDays = enabledDays;
+  }
+
+  if (!hasExplicitRepeatDays && !isOneTime && !candidate.days) {
+    repeatDays = [1, 2, 3, 4, 5];
+  }
 
   const createdAt = typeof candidate.createdAt === 'string' ? candidate.createdAt : nowIso();
   const updatedAt = typeof candidate.updatedAt === 'string' ? candidate.updatedAt : createdAt;
-  const parsedOneTimeDate =
-    typeof candidate.oneTimeDate === 'string' && Number.isFinite(new Date(candidate.oneTimeDate).getTime())
-      ? new Date(candidate.oneTimeDate).toISOString()
-      : null;
 
   return {
     id: typeof candidate.id === 'string' && candidate.id.trim() ? candidate.id : createScheduleId(),
@@ -83,21 +130,26 @@ function normalizeSchedule(raw: unknown, fallbackLabel = 'Alarm'): AlarmSchedule
       typeof candidate.skipNextTimestamp === 'number' && Number.isFinite(candidate.skipNextTimestamp)
         ? candidate.skipNextTimestamp
         : null,
-    soundId: candidate.soundId ?? DEFAULT_ALARM_SOUND_ID,
-    days,
-    oneTimeDate: parsedOneTimeDate,
+    isOneTime,
+    oneTimeDate: isOneTime ? parseOneTimeDate(candidate.oneTimeDate) : null,
+    soundId: (candidate.soundId as AlarmSoundId | undefined) ?? DEFAULT_ALARM_SOUND_ID,
+    hour,
+    minute,
+    repeatDays,
     createdAt,
     updatedAt,
     nextScheduledTimestamp:
-      typeof candidate.nextScheduledTimestamp === 'number' ? candidate.nextScheduledTimestamp : null,
+      typeof candidate.nextScheduledTimestamp === 'number' && Number.isFinite(candidate.nextScheduledTimestamp)
+        ? candidate.nextScheduledTimestamp
+        : null,
     notificationId: typeof candidate.notificationId === 'string' ? candidate.notificationId : undefined,
   };
 }
 
 function migrateLegacyAlarm(raw: unknown): AlarmSchedule {
   const legacy = (raw && typeof raw === 'object' ? raw : {}) as LegacyAlarmShape;
-  const hour = Number.isInteger(legacy.hour) ? Number(legacy.hour) : 7;
-  const minute = Number.isInteger(legacy.minute) ? Number(legacy.minute) : 0;
+  const hour = Number.isInteger(legacy.hour) ? clampNumber(Number(legacy.hour), 0, 23) : 7;
+  const minute = Number.isInteger(legacy.minute) ? clampNumber(Number(legacy.minute), 0, 59) : 0;
   const base = createAlarmScheduleInput(legacy.label ?? 'Work');
 
   return {
@@ -108,14 +160,16 @@ function migrateLegacyAlarm(raw: unknown): AlarmSchedule {
       typeof legacy.skipNextTimestamp === 'number' && Number.isFinite(legacy.skipNextTimestamp)
         ? legacy.skipNextTimestamp
         : null,
+    isOneTime: Boolean(legacy.isOneTime),
+    oneTimeDate: parseOneTimeDate(legacy.oneTimeDate),
     soundId: legacy.soundId ?? DEFAULT_ALARM_SOUND_ID,
-    days: buildDefaultDays(hour, minute),
-    oneTimeDate:
-      typeof legacy.oneTimeDate === 'string' && Number.isFinite(new Date(legacy.oneTimeDate).getTime())
-        ? new Date(legacy.oneTimeDate).toISOString()
-        : null,
+    hour,
+    minute,
+    repeatDays: normalizeRepeatDays(legacy.repeatDays).length > 0 ? normalizeRepeatDays(legacy.repeatDays) : [1, 2, 3, 4, 5],
     nextScheduledTimestamp:
-      typeof legacy.nextScheduledTimestamp === 'number' ? legacy.nextScheduledTimestamp : null,
+      typeof legacy.nextScheduledTimestamp === 'number' && Number.isFinite(legacy.nextScheduledTimestamp)
+        ? legacy.nextScheduledTimestamp
+        : null,
     notificationId: legacy.notificationId,
   };
 }
@@ -128,9 +182,12 @@ function createAlarmScheduleInput(label: string): AlarmSchedule {
     enabled: true,
     skipNextOccurrence: false,
     skipNextTimestamp: null,
-    soundId: DEFAULT_ALARM_SOUND_ID,
-    days: buildDefaultDays(),
+    isOneTime: false,
     oneTimeDate: null,
+    soundId: DEFAULT_ALARM_SOUND_ID,
+    hour: 7,
+    minute: 0,
+    repeatDays: [1, 2, 3, 4, 5],
     createdAt: timestamp,
     updatedAt: timestamp,
     nextScheduledTimestamp: null,
@@ -158,9 +215,13 @@ async function migrateIfNeeded() {
     return;
   }
 
-  const migrated = migrateLegacyAlarm(JSON.parse(legacyValue));
-  await AsyncStorage.setItem(ALARM_SCHEDULES_STORAGE_KEY, JSON.stringify([migrated]));
-  await AsyncStorage.removeItem(LEGACY_ALARM_STORAGE_KEY);
+  try {
+    const migrated = migrateLegacyAlarm(JSON.parse(legacyValue));
+    await AsyncStorage.setItem(ALARM_SCHEDULES_STORAGE_KEY, JSON.stringify([migrated]));
+    await AsyncStorage.removeItem(LEGACY_ALARM_STORAGE_KEY);
+  } catch (error) {
+    console.error('Migration failed', error);
+  }
 }
 
 export async function getAlarmSchedules(): Promise<AlarmSchedule[]> {
@@ -171,19 +232,25 @@ export async function getAlarmSchedules(): Promise<AlarmSchedule[]> {
     return [];
   }
 
-  const parsed = JSON.parse(value) as unknown;
-  if (!Array.isArray(parsed)) {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const normalizedSchedules = parsed.map((item, index) => normalizeSchedule(item, `Alarm ${index + 1}`));
+    const stableSchedules = normalizedSchedules.map((schedule) => normalizeAlarmSchedulingState(schedule, new Date()));
+
+    if (stableSchedules.some((schedule, index) => didSchedulingStateChange(normalizedSchedules[index]!, schedule))) {
+      await saveAlarmSchedules(stableSchedules);
+    }
+
+    return stableSchedules;
+  } catch (error) {
+    console.error('Failed to parse alarm schedules', error);
     return [];
   }
-
-  const normalizedSchedules = parsed.map((item, index) => normalizeSchedule(item, `Alarm ${index + 1}`));
-  const stableSchedules = normalizedSchedules.map((schedule) => normalizeAlarmSchedulingState(schedule, new Date()));
-
-  if (stableSchedules.some((schedule, index) => didSchedulingStateChange(normalizedSchedules[index]!, schedule))) {
-    await saveAlarmSchedules(stableSchedules);
-  }
-
-  return stableSchedules;
 }
 
 export async function saveAlarmSchedules(schedules: AlarmSchedule[]) {
@@ -209,12 +276,15 @@ export async function updateAlarmSchedule(scheduleId: string, updater: (schedule
     }
 
     const next = updater(schedule);
-    return normalizeSchedule({
-      ...next,
-      id: schedule.id,
-      createdAt: schedule.createdAt,
-      updatedAt: nowIso(),
-    }, schedule.label);
+    return normalizeSchedule(
+      {
+        ...next,
+        id: schedule.id,
+        createdAt: schedule.createdAt,
+        updatedAt: nowIso(),
+      },
+      schedule.label,
+    );
   });
 
   await saveAlarmSchedules(updated);
@@ -229,16 +299,35 @@ export async function deleteAlarmSchedule(scheduleId: string) {
 }
 
 export async function toggleAlarmScheduleEnabled(scheduleId: string) {
-  return updateAlarmSchedule(scheduleId, (schedule) => ({
-    ...schedule,
-    enabled: !schedule.enabled,
-    skipNextOccurrence: !schedule.enabled ? schedule.skipNextOccurrence : false,
-    skipNextTimestamp: !schedule.enabled ? schedule.skipNextTimestamp : null,
-  }));
+  return updateAlarmSchedule(scheduleId, (schedule) => {
+    const nextEnabled = !schedule.enabled;
+
+    return {
+      ...schedule,
+      enabled: nextEnabled,
+      skipNextOccurrence: false,
+      skipNextTimestamp: null,
+      oneTimeDate: schedule.isOneTime ? null : schedule.oneTimeDate,
+      nextScheduledTimestamp: null,
+      notificationId: undefined,
+    };
+  });
 }
 
 export async function skipNextAlarmOccurrence(scheduleId: string) {
   return updateAlarmSchedule(scheduleId, (schedule) => {
+    if (schedule.isOneTime) {
+      return {
+        ...schedule,
+        enabled: false,
+        skipNextOccurrence: false,
+        skipNextTimestamp: null,
+        oneTimeDate: null,
+        nextScheduledTimestamp: null,
+        notificationId: undefined,
+      };
+    }
+
     const nextTriggerDate = getNextTriggerDate(schedule, new Date(), { ignoreSkipNext: true });
 
     if (!nextTriggerDate) {
@@ -253,6 +342,8 @@ export async function skipNextAlarmOccurrence(scheduleId: string) {
       ...schedule,
       skipNextOccurrence: true,
       skipNextTimestamp: nextTriggerDate.getTime(),
+      nextScheduledTimestamp: null,
+      notificationId: undefined,
     };
   });
 }

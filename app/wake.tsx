@@ -1,11 +1,12 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, Pressable, SafeAreaView, StyleSheet, Text, Vibration, View } from 'react-native';
+import { Alert, BackHandler, SafeAreaView, StyleSheet, Text, Vibration, View } from 'react-native';
 
+import { WakeButton } from '@/components/wake-button';
 import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
-import { playAlarmSound, stopAlarmSound } from '@/services/sound';
 import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
+import { playAlarmSound, stopAlarmSound } from '@/services/sound';
 import { clearSkippedNextOccurrence, getAlarmSchedules } from '@/storage/alarmScheduleStorage';
 import { saveWakeResult } from '@/storage/wakeResultsStorage';
 import { formatScheduledTime, getMockPercentile } from '@/utils/time';
@@ -17,45 +18,33 @@ function getStartTime(startTimeParam: string | string[] | undefined) {
   return Number.isFinite(parsedValue) ? parsedValue : Date.now();
 }
 
-function formatMilliseconds(milliseconds: number) {
-  const safeMilliseconds = Math.max(0, milliseconds);
-  const minutes = Math.floor(safeMilliseconds / 60000);
-  const seconds = Math.floor((safeMilliseconds % 60000) / 1000);
-  const centiseconds = Math.floor((safeMilliseconds % 1000) / 10);
-
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
-}
-
 export default function WakeScreen() {
   const router = useRouter();
   const { t } = useLanguage();
   const {
     startTime: startTimeParam,
     alarmTime: alarmTimeParam,
-    alarmId: alarmIdParam,
     scheduleId: scheduleIdParam,
-  } = useLocalSearchParams<{ startTime?: string; alarmTime?: string; alarmId?: string; scheduleId?: string }>();
+    alarmId: alarmIdParam,
+  } = useLocalSearchParams<{
+    startTime?: string;
+    alarmTime?: string;
+    scheduleId?: string;
+    alarmId?: string;
+  }>();
+
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
   const alarmTime = Array.isArray(alarmTimeParam) ? alarmTimeParam[0] : alarmTimeParam;
-  const alarmId = Array.isArray(alarmIdParam) ? alarmIdParam[0] : alarmIdParam;
-  const scheduleId = alarmId ?? (Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam);
-  const [elapsedMs, setElapsedMs] = useState(() => Math.max(0, Date.now() - startTime));
+  const scheduleId = alarmIdParam ?? (Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam);
+
   const [isStopping, setIsStopping] = useState(false);
   const stopInFlightRef = useRef(false);
 
   useEffect(() => {
-    setElapsedMs(Math.max(0, Date.now() - startTime));
-
-    const interval = setInterval(() => {
-      setElapsedMs(Math.max(0, Date.now() - startTime));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [startTime]);
-
-  useEffect(() => {
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => true);
-    Vibration.vibrate([0, 400, 300, 400], true);
+
+    const vibrationPattern = [0, 1000, 500];
+    Vibration.vibrate(vibrationPattern, true);
 
     void playAlarmSound().then((didPlay) => {
       if (!didPlay) {
@@ -131,11 +120,14 @@ export default function WakeScreen() {
       <Stack.Screen options={{ headerShown: false, title: t('wake.title') }} />
 
       <View style={styles.content}>
-        <Text style={styles.timerValue}>{formatMilliseconds(elapsedMs)}</Text>
+        <View style={styles.header}>
+          <Text style={styles.alarmTimeText}>{alarmTime || '--:--'}</Text>
+          <Text style={styles.wakeUpText}>WAKE UP</Text>
+        </View>
 
-        <Pressable style={styles.stopButton} onPress={() => void handleStop()} disabled={isStopping}>
-          <Text style={styles.stopButtonText}>{t('common.stop')}</Text>
-        </Pressable>
+        <View style={styles.footer}>
+          <WakeButton onStop={handleStop} disabled={isStopping} />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -149,29 +141,29 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 30,
+    paddingVertical: 60,
   },
-  timerValue: {
-    color: colors.text,
-    fontSize: 60,
-    fontWeight: '800',
-    marginBottom: 56,
-    letterSpacing: 1,
-  },
-  stopButton: {
+  header: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    justifyContent: 'center',
-    minHeight: 220,
-    minWidth: 220,
-    padding: 24,
+    marginTop: 40,
   },
-  stopButtonText: {
-    color: '#111827',
-    fontSize: 40,
-    fontWeight: '900',
-    letterSpacing: 1,
+  alarmTimeText: {
+    color: colors.text,
+    fontSize: 80,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  wakeUpText: {
+    color: colors.primary,
+    fontSize: 24,
+    fontWeight: '600',
+    letterSpacing: 8,
+    marginTop: 10,
+  },
+  footer: {
+    width: '100%',
+    marginBottom: 40,
   },
 });

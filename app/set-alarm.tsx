@@ -2,6 +2,7 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useLanguage } from '@/context/language-context';
 import { colors } from '@/lib/theme';
 import { formatAlarmTime } from '@/services/alarm';
 import { getEnabledDaysSummary, getNextAlarmOccurrenceRespectingSkip } from '@/services/alarmScheduler';
@@ -18,6 +19,7 @@ const LABEL_PRESETS = ['Work', 'Gym', 'Study', 'Weekend', 'Custom'];
 
 export default function SetAlarmScreen() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [schedules, setSchedules] = useState<AlarmSchedule[]>([]);
 
   const loadSchedules = useCallback(async () => {
@@ -49,7 +51,10 @@ export default function SetAlarmScreen() {
     await loadSchedules();
   };
 
-  const scheduleCountLabel = useMemo(() => `${schedules.length} schedule${schedules.length === 1 ? '' : 's'}`, [schedules.length]);
+  const scheduleCountLabel = useMemo(
+    () => `${schedules.length} schedule${schedules.length === 1 ? '' : 's'}`,
+    [schedules.length],
+  );
 
   return (
     <View style={styles.container}>
@@ -63,9 +68,9 @@ export default function SetAlarmScreen() {
         </View>
 
         {schedules.map((schedule) => {
-          const days = getEnabledDaysSummary(schedule).map((day) => getWeekdayLabel(day, 'en')).join(' ');
+          const days = getEnabledDaysSummary(schedule).map((day) => getWeekdayLabel(day, language)).join(' ');
           const next = getNextAlarmOccurrenceRespectingSkip(schedule);
-          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.days.monday.hour, schedule.days.monday.minute);
+          const displayTime = next ? next.formattedTime : formatAlarmTime(schedule.hour, schedule.minute);
 
           return (
             <Pressable
@@ -73,7 +78,9 @@ export default function SetAlarmScreen() {
               style={[styles.scheduleCard, !schedule.enabled && styles.disabledCard]}
               onPress={() => router.push({ pathname: '/alarm/[id]', params: { id: schedule.id } })}>
               <Text style={styles.scheduleTitle}>{schedule.label}</Text>
-              <Text style={styles.scheduleSummary}>{days || 'No active days'} — {displayTime}</Text>
+              <Text style={styles.scheduleSummary}>
+                {days || 'No active days'} — {displayTime}
+              </Text>
               {schedule.skipNextOccurrence ? <Text style={styles.skipInfo}>Next occurrence skipped once</Text> : null}
 
               <View style={styles.rowActions}>
