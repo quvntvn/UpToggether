@@ -18,6 +18,10 @@ function getStartTime(startTimeParam: string | string[] | undefined) {
   return Number.isFinite(parsedValue) ? parsedValue : Date.now();
 }
 
+function getFirstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function WakeScreen() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -34,16 +38,16 @@ export default function WakeScreen() {
   }>();
 
   const startTime = useMemo(() => getStartTime(startTimeParam), [startTimeParam]);
-  const alarmTime = Array.isArray(alarmTimeParam) ? alarmTimeParam[0] : alarmTimeParam;
-  const scheduleId = alarmIdParam ?? (Array.isArray(scheduleIdParam) ? scheduleIdParam[0] : scheduleIdParam);
+  const alarmTime = getFirstParam(alarmTimeParam);
+  const scheduleId = getFirstParam(alarmIdParam) ?? getFirstParam(scheduleIdParam);
 
   const [isStopping, setIsStopping] = useState(false);
   const stopInFlightRef = useRef(false);
 
   useEffect(() => {
     const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => true);
-
     const vibrationPattern = [0, 1000, 500];
+
     Vibration.vibrate(vibrationPattern, true);
 
     void playAlarmSound().then((didPlay) => {

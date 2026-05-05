@@ -32,13 +32,6 @@ function logScheduledAlarm(schedule: AlarmSchedule, nextTriggerDate: Date, notif
   );
 }
 
-/**
- * Reschedules all alarms:
- * - Cancels all existing notifications
- * - Schedules only the next occurrence for each enabled alarm
- * - Attaches alarmId in notification data
- * - Logs every scheduled alarm with its date
- */
 export async function rescheduleAllAlarms(schedules: AlarmSchedule[]): Promise<AlarmSchedule[]> {
   const now = new Date();
   const preparedSchedules = schedules.map((schedule) => prepareAlarmForScheduling(schedule, now));

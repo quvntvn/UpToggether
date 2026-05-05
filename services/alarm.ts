@@ -204,20 +204,17 @@ export async function scheduleAlarmSafe(
     console.warn(`[AlarmScheduler] Notifications are not supported on web. Using a local timeout fallback for ${date.toISOString()}.`);
 
     const notificationId = getWebNotificationFallbackId();
-    const delay = date.getTime() - Date.now();
+    const delay = Math.max(0, date.getTime() - Date.now());
+    const timeoutId = setTimeout(() => {
+      webScheduledAlarms.delete(notificationId);
+      showWebAlarmFallback();
+    }, delay);
 
-    if (delay > 0) {
-      const timeoutId = setTimeout(() => {
-        webScheduledAlarms.delete(notificationId);
-        showWebAlarmFallback();
-      }, delay);
-
-      webScheduledAlarms.set(notificationId, {
-        notificationId,
-        scheduledFor: date.getTime(),
-        timeoutId,
-      });
-    }
+    webScheduledAlarms.set(notificationId, {
+      notificationId,
+      scheduledFor: date.getTime(),
+      timeoutId,
+    });
 
     return notificationId;
   }

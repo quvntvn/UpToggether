@@ -10,7 +10,7 @@ import { syncAlarmSchedules } from '@/services/alarmScheduleManager';
 import { deleteAlarmSchedule, getAlarmSchedules, updateAlarmSchedule } from '@/storage/alarmScheduleStorage';
 import { getWeekdayLabel, WEEKDAY_ORDER, type AlarmSchedule, type WeekdayKey } from '@/types/alarmSchedule';
 
-function resetComputedScheduling(schedule: AlarmSchedule) {
+function resetComputedScheduling(schedule: AlarmSchedule): AlarmSchedule {
   return {
     ...schedule,
     skipNextOccurrence: false,
@@ -34,6 +34,7 @@ export default function AlarmEditorScreen() {
     async function loadSchedule() {
       const schedules = await getAlarmSchedules();
       const found = schedules.find((item) => item.id === id);
+
       if (found) {
         setSchedule(found);
         const date = new Date();
@@ -45,7 +46,9 @@ export default function AlarmEditorScreen() {
     void loadSchedule();
   }, [id]);
 
-  const enabledDaysCount = useMemo(() => schedule?.repeatDays?.length ?? 0, [schedule]);
+  const enabledDaysCount = useMemo(() => {
+    return schedule?.repeatDays?.length ?? 0;
+  }, [schedule]);
 
   const openTimePicker = () => {
     if (!schedule) {
@@ -199,7 +202,8 @@ export default function AlarmEditorScreen() {
                     })
                   : previous,
               )
-            }>
+            }
+          >
             <Text style={styles.toggleButtonText}>{schedule.enabled ? 'Schedule Enabled' : 'Schedule Disabled'}</Text>
           </Pressable>
         </View>
@@ -224,7 +228,8 @@ export default function AlarmEditorScreen() {
                       })
                     : previous,
                 )
-              }>
+              }
+            >
               <Text style={[styles.checkOptionText, schedule.isOneTime && styles.checkOptionTextActive]}>
                 One-time alarm
               </Text>
@@ -237,11 +242,13 @@ export default function AlarmEditorScreen() {
           <View style={styles.weekdayContainer}>
             {WEEKDAY_ORDER.map((day) => {
               const isActive = schedule.repeatDays?.includes(day);
+
               return (
                 <Pressable
                   key={day}
                   style={[styles.weekdayCircle, isActive && styles.weekdayCircleActive]}
-                  onPress={() => toggleDay(day)}>
+                  onPress={() => toggleDay(day)}
+                >
                   <Text style={[styles.weekdayText, isActive && styles.weekdayTextActive]}>
                     {getWeekdayLabel(day, language).substring(0, 1)}
                   </Text>
@@ -257,7 +264,8 @@ export default function AlarmEditorScreen() {
         <Pressable
           style={[styles.primaryButton, isSaving && styles.disabledButton]}
           onPress={() => void handleSaveAlarm()}
-          disabled={isSaving}>
+          disabled={isSaving}
+        >
           <Text style={styles.primaryButtonText}>{isSaving ? t('setAlarm.saving') : 'Save Alarm'}</Text>
         </Pressable>
 

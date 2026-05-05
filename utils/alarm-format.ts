@@ -12,22 +12,38 @@ export function formatRepeatDaysShort(repeatDays: WeekdayKey[], language: Langua
     .join(' ');
 }
 
-export function getReadableRepeatLabel(repeatDays: WeekdayKey[], language: Language, isOneTime?: boolean): string {
+export function getReadableRepeatLabel(
+  repeatDays: WeekdayKey[],
+  language: Language,
+  isOneTime?: boolean,
+): string {
   if (repeatDays.length === 0) {
-    return isOneTime ? (language === 'fr' ? 'Une seule fois' : 'Once') : language === 'fr' ? 'Aucun jour' : 'No days';
+    return isOneTime
+      ? language === 'fr'
+        ? 'Une seule fois'
+        : 'Once'
+      : language === 'fr'
+        ? 'Aucun jour'
+        : 'No days';
   }
 
   if (repeatDays.length === 7) {
     return language === 'fr' ? 'Tous les jours' : 'Every day';
   }
 
-  const sortedDays = [...repeatDays].sort((a, b) => WEEKDAY_ORDER.indexOf(a) - WEEKDAY_ORDER.indexOf(b));
-  const isWeekdays = repeatDays.length === 5 && [1, 2, 3, 4, 5].every((day) => repeatDays.includes(day as WeekdayKey));
+  const sortedDays = [...repeatDays].sort((left, right) => {
+    return WEEKDAY_ORDER.indexOf(left) - WEEKDAY_ORDER.indexOf(right);
+  });
+  const isWeekdays =
+    repeatDays.length === 5 && [1, 2, 3, 4, 5].every((day) => repeatDays.includes(day as WeekdayKey));
+
   if (isWeekdays) {
     return language === 'fr' ? 'Semaine' : 'Weekdays';
   }
 
-  const isWeekends = repeatDays.length === 2 && [6, 0].every((day) => repeatDays.includes(day as WeekdayKey));
+  const isWeekends =
+    repeatDays.length === 2 && [6, 0].every((day) => repeatDays.includes(day as WeekdayKey));
+
   if (isWeekends) {
     return language === 'fr' ? 'Week-end' : 'Weekends';
   }

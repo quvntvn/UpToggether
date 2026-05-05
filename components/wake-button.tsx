@@ -24,7 +24,7 @@ export function WakeButton({ onStop, disabled }: WakeButtonProps) {
   const scale = useSharedValue(1);
 
   const handleComplete = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onStop();
   };
 
@@ -51,6 +51,7 @@ export function WakeButton({ onStop, disabled }: WakeButtonProps) {
     })
     .onFinalize(() => {
       scale.value = withTiming(1, { duration: 200 });
+
       if (progress.value < 1) {
         cancelAnimation(progress);
         progress.value = withTiming(0, { duration: 300 });
