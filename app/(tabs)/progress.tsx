@@ -15,7 +15,7 @@ import { getBestStreak, getCurrentStreak } from '@/utils/streak';
 
 export default function ProgressTabScreen() {
   const router = useRouter();
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [results, setResults] = useState<WakeResult[]>([]);
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
   const [activeContract, setActiveContract] = useState<ActiveWakeContract | null>(null);
@@ -43,85 +43,61 @@ export default function ProgressTabScreen() {
   const badgeProgress = Math.round((unlockedBadges.length / BADGE_CATALOG.length) * 100);
   const contractStatus =
     activeContract?.status === 'completed'
-      ? language === 'fr'
-        ? 'Terminé'
-        : 'Completed'
+      ? t('progressTab.contractStatus.completed')
       : activeContract?.status === 'failed'
-        ? language === 'fr'
-          ? 'Échoué'
-          : 'Failed'
+        ? t('progressTab.contractStatus.failed')
         : activeContract?.status === 'active'
-          ? language === 'fr'
-            ? 'Actif'
-            : 'Active'
+          ? t('progressTab.contractStatus.active')
           : null;
 
-  const copy =
-    language === 'fr'
-      ? {
-          title: 'Progrès',
-          subtitle: 'Ton historique, tes séries, tes badges et tes contrats.',
-          currentStreak: 'SÉRIE ACTUELLE',
-          bestStreak: 'MEILLEURE SÉRIE',
-          streakUnit: 'j',
-          historyTitle: 'Historique des réveils',
-          historyBody: `${results.length} session${results.length > 1 ? 's' : ''} enregistrée${results.length > 1 ? 's' : ''}.`,
-          badgesTitle: 'Badges',
-          badgesBody: `${unlockedBadges.length}/${BADGE_CATALOG.length} débloqués · ${badgeProgress}% complété.`,
-          contractsTitle: 'Contrats de réveil',
-          noContract: 'Aucun contrat actif',
-        }
-      : {
-          title: 'Progress',
-          subtitle: 'Your history, streak, badges, and contracts.',
-          currentStreak: 'CURRENT STREAK',
-          bestStreak: 'BEST STREAK',
-          streakUnit: 'd',
-          historyTitle: 'Wake history',
-          historyBody: `${results.length} recorded wake session${results.length === 1 ? '' : '(s)'}.`,
-          badgesTitle: 'Badges',
-          badgesBody: `${unlockedBadges.length}/${BADGE_CATALOG.length} unlocked · ${badgeProgress}% complete.`,
-          contractsTitle: 'Wake contracts',
-          noContract: 'No active contract',
-        };
+  const streakUnit = t('progressTab.streakUnit');
+  const historyKey = results.length === 1 ? 'progressTab.historyBodyOne' : 'progressTab.historyBodyOther';
+  const historyBody = t(historyKey, { count: results.length });
+  const badgesBody = t('progressTab.badgesBody', {
+    unlocked: unlockedBadges.length,
+    total: BADGE_CATALOG.length,
+    percent: badgeProgress,
+  });
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.subtitle}>{copy.subtitle}</Text>
+        <Text style={styles.title}>{t('progressTab.title')}</Text>
+        <Text style={styles.subtitle}>{t('progressTab.subtitle')}</Text>
 
         <View style={styles.metricsRow}>
           <View style={[styles.card, styles.metricCard]}>
-            <Text style={styles.kicker}>{copy.currentStreak}</Text>
+            <Text style={styles.kicker}>{t('progressTab.currentStreak')}</Text>
             <Text style={styles.metricValue}>
               {currentStreak}
-              {copy.streakUnit}
+              {streakUnit}
             </Text>
           </View>
           <View style={[styles.card, styles.metricCard]}>
-            <Text style={styles.kicker}>{copy.bestStreak}</Text>
+            <Text style={styles.kicker}>{t('progressTab.bestStreak')}</Text>
             <Text style={styles.metricValue}>
               {bestStreak}
-              {copy.streakUnit}
+              {streakUnit}
             </Text>
           </View>
         </View>
 
         <Pressable style={styles.card} onPress={() => router.push('/history')}>
-          <Text style={styles.cardTitle}>{copy.historyTitle}</Text>
-          <Text style={styles.cardBody}>{copy.historyBody}</Text>
+          <Text style={styles.cardTitle}>{t('progressTab.historyTitle')}</Text>
+          <Text style={styles.cardBody}>{historyBody}</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push('/badges')}>
-          <Text style={styles.cardTitle}>{copy.badgesTitle}</Text>
-          <Text style={styles.cardBody}>{copy.badgesBody}</Text>
+          <Text style={styles.cardTitle}>{t('progressTab.badgesTitle')}</Text>
+          <Text style={styles.cardBody}>{badgesBody}</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push('/contracts')}>
-          <Text style={styles.cardTitle}>{copy.contractsTitle}</Text>
+          <Text style={styles.cardTitle}>{t('progressTab.contractsTitle')}</Text>
           <Text style={styles.cardBody}>
-            {activeContract ? `${activeContract.title}${contractStatus ? ` (${contractStatus})` : ''}` : copy.noContract}
+            {activeContract
+              ? `${activeContract.title}${contractStatus ? ` (${contractStatus})` : ''}`
+              : t('progressTab.noContract')}
           </Text>
         </Pressable>
       </ScrollView>

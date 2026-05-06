@@ -8,57 +8,32 @@ import { colors } from '@/lib/theme';
 
 export default function SquadTabScreen() {
   const router = useRouter();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const reactions = buildMockFriendReactions(new Date(), language).slice(0, 3);
-
-  const copy =
-    language === 'fr'
-      ? {
-          title: 'Morning Squad',
-          subtitle: 'Toute ta responsabilité sociale au même endroit.',
-          rankingTitle: 'Classement du squad',
-          rankingBody: 'Consulte le classement du jour, la série et les nouvelles du groupe.',
-          buddyTitle: 'Wake Buddy',
-          buddyBody: 'Vois le statut de ton buddy, votre duel et ses rappels de responsabilité.',
-          friendsTitle: 'Amis',
-          friendsBody: 'Parcours ton crew local et ses habitudes de réveil.',
-          feedTitle: 'Réactions rapides',
-        }
-      : {
-          title: 'Morning Squad',
-          subtitle: 'Social accountability in one place.',
-          rankingTitle: 'Squad ranking',
-          rankingBody: 'Check today’s ranking, streak, and group feed updates.',
-          buddyTitle: 'Wake Buddy',
-          buddyBody: 'See your buddy status, head-to-head battle, and accountability prompts.',
-          friendsTitle: 'Friends',
-          friendsBody: 'Browse your mock crew and their wake-up behavior.',
-          feedTitle: 'Quick reactions',
-        };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>{copy.title}</Text>
-        <Text style={styles.subtitle}>{copy.subtitle}</Text>
+        <Text style={styles.title}>{t('squadTab.title')}</Text>
+        <Text style={styles.subtitle}>{t('squadTab.subtitle')}</Text>
 
         <Pressable style={styles.card} onPress={() => router.push('/group')}>
-          <Text style={styles.cardTitle}>{copy.rankingTitle}</Text>
-          <Text style={styles.cardBody}>{copy.rankingBody}</Text>
+          <Text style={styles.cardTitle}>{t('squadTab.rankingTitle')}</Text>
+          <Text style={styles.cardBody}>{t('squadTab.rankingBody')}</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push('/buddy')}>
-          <Text style={styles.cardTitle}>{copy.buddyTitle}</Text>
-          <Text style={styles.cardBody}>{copy.buddyBody}</Text>
+          <Text style={styles.cardTitle}>{t('squadTab.buddyTitle')}</Text>
+          <Text style={styles.cardBody}>{t('squadTab.buddyBody')}</Text>
         </Pressable>
 
         <Pressable style={styles.card} onPress={() => router.push('/friends')}>
-          <Text style={styles.cardTitle}>{copy.friendsTitle}</Text>
-          <Text style={styles.cardBody}>{copy.friendsBody}</Text>
+          <Text style={styles.cardTitle}>{t('squadTab.friendsTitle')}</Text>
+          <Text style={styles.cardBody}>{t('squadTab.friendsBody')}</Text>
         </Pressable>
 
         <View style={styles.feedCard}>
-          <Text style={styles.feedTitle}>{copy.feedTitle}</Text>
+          <Text style={styles.feedTitle}>{t('squadTab.feedTitle')}</Text>
           {reactions.map((reaction) => (
             <View key={reaction.id} style={styles.feedRow}>
               <Text style={styles.feedDot}>•</Text>

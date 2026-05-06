@@ -27,6 +27,20 @@ module.exports = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: 'com.quvntvn.UpTogether',
+    // Permissions required for reliable wake-up alarms.
+    // SCHEDULE_EXACT_ALARM: required on Android 12+ to schedule exact-time notifications (user-grantable).
+    // USE_EXACT_ALARM: auto-granted on Android 13+ for genuine alarm-clock apps; survives Doze/App Standby.
+    // USE_FULL_SCREEN_INTENT: lets the wake screen take over a locked device when the alarm fires.
+    // WAKE_LOCK / VIBRATE / RECEIVE_BOOT_COMPLETED: keep the alarm pipeline alive across reboots.
+    permissions: [
+      'SCHEDULE_EXACT_ALARM',
+      'USE_EXACT_ALARM',
+      'USE_FULL_SCREEN_INTENT',
+      'WAKE_LOCK',
+      'VIBRATE',
+      'RECEIVE_BOOT_COMPLETED',
+      'POST_NOTIFICATIONS',
+    ],
   },
   web: {
     output: 'static',
