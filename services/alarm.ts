@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
 import { isNativeNotificationsSupported } from '@/lib/isNativeNotificationsSupported';
 
@@ -110,11 +110,18 @@ async function ensureAlarmNotificationChannel(soundName: string) {
     sound: soundName,
     vibrationPattern: [0, 500, 250, 500, 250, 500],
     enableVibrate: true,
+    enableLights: true,
+    lightColor: '#FFD54A',
+    showBadge: false,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     bypassDnd: true,
     audioAttributes: {
       usage: Notifications.AndroidAudioUsage.ALARM,
       contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      flags: {
+        enforceAudibility: true,
+        requestHardwareAudioVideoSynchronization: false,
+      },
     },
   });
 
@@ -141,6 +148,43 @@ export async function requestAlarmPermissions() {
   });
 
   return requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
+}
+
+/**
+ * On Android 12+ users must opt in to exact alarms in system Settings, otherwise
+ * scheduled notifications can be delayed by Doze and App Standby. This helper
+ * deep-links to the OEM "Alarms & reminders" page so the UI can guide the user.
+ */
+export async function openExactAlarmSystemSettings() {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  try {
+    await Linking.sendIntent('android.settings.REQUEST_SCHEDULE_EXACT_ALARM');
+    return true;
+  } catch {
+    try {
+      await Linking.openSettings();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * Best-effort signal that the device's OS may delay alarms unless the user
+ * has granted the SCHEDULE_EXACT_ALARM permission. expo-notifications does
+ * not expose AlarmManager.canScheduleExactAlarms(), so we conservatively
+ * return true on Android 12+ (API 31+) and let callers prompt the user.
+ */
+export function shouldPromptForExactAlarmSettings() {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  return Number(Platform.Version) >= 31;
 }
 
 export async function cancelScheduledAlarm(notificationId?: string | null) {

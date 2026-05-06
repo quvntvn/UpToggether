@@ -1,27 +1,25 @@
-import { Audio, type AVPlaybackSource, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
+import type { AudioPlayer } from 'expo-audio';
 
-type AlarmSoundInstance = {
-  getStatusAsync: () => Promise<{ isLoaded?: boolean; isPlaying?: boolean }>;
-  setIsLoopingAsync: (isLooping: boolean) => Promise<unknown>;
-  setPositionAsync: (positionMillis: number) => Promise<unknown>;
-  playAsync: () => Promise<unknown>;
-  stopAsync: () => Promise<unknown>;
-  unloadAsync: () => Promise<unknown>;
-};
-
-let alarmSound: AlarmSoundInstance | null = null;
-let alarmSource: AVPlaybackSource | null | undefined;
+let alarmPlayer: AudioPlayer | null = null;
+let alarmSource: number | null | undefined;
+let isAudioModeConfigured = false;
 
 async function configureAudioMode() {
-  await Audio.setAudioModeAsync({
-    allowsRecordingIOS: false,
-    staysActiveInBackground: true,
-    interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-    playsInSilentModeIOS: true,
-    shouldDuckAndroid: false,
-    interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-    playThroughEarpieceAndroid: false,
+  if (isAudioModeConfigured) {
+    return;
+  }
+
+  await setAudioModeAsync({
+    allowsRecording: false,
+    shouldPlayInBackground: true,
+    playsInSilentMode: true,
+    interruptionMode: 'doNotMix',
+    interruptionModeAndroid: 'doNotMix',
+    shouldRouteThroughEarpiece: false,
   });
+
+  isAudioModeConfigured = true;
 }
 
 function resolveAlarmSource() {
@@ -31,7 +29,7 @@ function resolveAlarmSource() {
 
   // Load lazily so route import does not fail if the file is missing.
   try {
-    alarmSource = require('../assets/sounds/alarm.mp3');
+    alarmSource = require('../assets/sounds/alarm.mp3') as number;
   } catch (error) {
     console.warn('Alarm sound asset is missing or unreadable at assets/sounds/alarm.mp3.', error);
     alarmSource = null;
@@ -42,14 +40,14 @@ function resolveAlarmSource() {
 
 export async function playAlarmSound() {
   try {
-    if (alarmSound) {
-      const status = await alarmSound.getStatusAsync();
-      if (status.isLoaded && status.isPlaying) {
+    if (alarmPlayer) {
+      if (alarmPlayer.playing) {
         return true;
       }
-      await alarmSound.setIsLoopingAsync(true);
-      await alarmSound.setPositionAsync(0);
-      await alarmSound.playAsync();
+
+      alarmPlayer.loop = true;
+      await alarmPlayer.seekTo(0);
+      alarmPlayer.play();
       return true;
     }
 
@@ -59,15 +57,14 @@ export async function playAlarmSound() {
     }
 
     await configureAudioMode();
+    await setIsAudioActiveAsync(true);
 
-    const { sound } = await Audio.Sound.createAsync(source, {
-      shouldPlay: true,
-      isLooping: true,
-      volume: 1,
-      progressUpdateIntervalMillis: 250,
-    });
+    const player = createAudioPlayer(source);
+    player.loop = true;
+    player.volume = 1;
+    player.play();
 
-    alarmSound = sound as unknown as AlarmSoundInstance;
+    alarmPlayer = player;
     return true;
   } catch (error) {
     console.warn('Failed to play alarm sound. Continuing without audio.', error);
@@ -76,21 +73,28 @@ export async function playAlarmSound() {
 }
 
 export async function stopAlarmSound() {
-  if (!alarmSound) {
+  if (!alarmPlayer) {
     return;
   }
 
+  const player = alarmPlayer;
+  alarmPlayer = null;
+
   try {
-    await alarmSound.stopAsync();
+    player.pause();
   } catch (error) {
-    console.warn('Failed to stop alarm playback cleanly.', error);
+    console.warn('Failed to pause alarm playback cleanly.', error);
   }
 
   try {
-    await alarmSound.unloadAsync();
+    player.remove();
   } catch (error) {
-    console.warn('Failed to unload alarm sound.', error);
+    console.warn('Failed to release alarm sound.', error);
   }
 
-  alarmSound = null;
+  try {
+    await setIsAudioActiveAsync(false);
+  } catch (error) {
+    console.warn('Failed to deactivate audio session.', error);
+  }
 }

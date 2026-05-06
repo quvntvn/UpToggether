@@ -13,23 +13,7 @@ const TAB_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function TabsLayout() {
-  const { language } = useLanguage();
-  const titles =
-    language === 'fr'
-      ? {
-          home: 'Accueil',
-          alarms: 'Alarmes',
-          squad: 'Squad',
-          progress: 'Progrès',
-          settings: 'Réglages',
-        }
-      : {
-          home: 'Home',
-          alarms: 'Alarms',
-          squad: 'Squad',
-          progress: 'Progress',
-          settings: 'Settings',
-        };
+  const { t } = useLanguage();
 
   return (
     <Tabs
@@ -61,11 +45,11 @@ export default function TabsLayout() {
           />
         ),
       })}>
-      <Tabs.Screen name="index" options={{ title: titles.home, headerTitle: 'UpTogether' }} />
-      <Tabs.Screen name="alarms" options={{ title: titles.alarms }} />
-      <Tabs.Screen name="squad" options={{ title: titles.squad }} />
-      <Tabs.Screen name="progress" options={{ title: titles.progress }} />
-      <Tabs.Screen name="settings" options={{ title: titles.settings }} />
+      <Tabs.Screen name="index" options={{ title: t('tabs.home'), headerTitle: 'UpTogether' }} />
+      <Tabs.Screen name="alarms" options={{ title: t('tabs.alarms') }} />
+      <Tabs.Screen name="squad" options={{ title: t('tabs.squad') }} />
+      <Tabs.Screen name="progress" options={{ title: t('tabs.progress') }} />
+      <Tabs.Screen name="settings" options={{ title: t('tabs.settings') }} />
     </Tabs>
   );
 }
