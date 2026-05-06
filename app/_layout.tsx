@@ -6,6 +6,7 @@ import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { AuthProvider } from '@/context/auth-context';
 import { LanguageProvider } from '@/context/language-context';
 import { isNativeNotificationsSupported } from '@/lib/isNativeNotificationsSupported';
 import { colors } from '@/lib/theme';
@@ -125,33 +126,35 @@ function OnboardingGate() {
 export default function RootLayout() {
   return (
     <LanguageProvider>
-      <ThemeProvider value={appTheme}>
-        <OnboardingGate />
-        <AlarmNotificationBridge />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: '#0F172A' },
-            headerShadowVisible: false,
-            headerTintColor: '#FFFFFF',
-            headerTitleStyle: { fontWeight: '700' },
-            contentStyle: { backgroundColor: '#0F172A' },
-          }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="set-alarm" />
-          <Stack.Screen name="alarm/[id]" options={{ title: 'Alarm editor' }} />
-          <Stack.Screen name="friends" />
-          <Stack.Screen name="group" />
-          <Stack.Screen name="buddy" />
-          <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
-          <Stack.Screen name="result" />
-          <Stack.Screen name="history" />
-          <Stack.Screen name="badges" />
-          <Stack.Screen name="contracts" />
-          <Stack.Screen name="settings" />
-        </Stack>
-        <StatusBar style="light" />
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider value={appTheme}>
+          <OnboardingGate />
+          <AlarmNotificationBridge />
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: '#0F172A' },
+              headerShadowVisible: false,
+              headerTintColor: '#FFFFFF',
+              headerTitleStyle: { fontWeight: '700' },
+              contentStyle: { backgroundColor: '#0F172A' },
+            }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="set-alarm" />
+            <Stack.Screen name="alarm/[id]" options={{ title: 'Alarm editor' }} />
+            <Stack.Screen name="friends" />
+            <Stack.Screen name="group" />
+            <Stack.Screen name="buddy" />
+            <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="result" />
+            <Stack.Screen name="history" />
+            <Stack.Screen name="badges" />
+            <Stack.Screen name="contracts" />
+            <Stack.Screen name="settings" />
+          </Stack>
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </AuthProvider>
     </LanguageProvider>
   );
 }
