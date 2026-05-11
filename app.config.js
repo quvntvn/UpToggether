@@ -13,6 +13,9 @@ module.exports = {
   icon: './assets/images/icon.png',
   scheme: 'uptogether',
   userInterfaceStyle: 'automatic',
+  // Required by react-native-reanimated 4.x and other Fabric-aware modules.
+  // The companion onKeyDown NPE bug is patched via patch-package; see
+  // patches/react-native+0.81.5.patch for the fix.
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
