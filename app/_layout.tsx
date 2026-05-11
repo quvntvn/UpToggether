@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -125,41 +126,44 @@ function OnboardingGate() {
 
 export default function RootLayout() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <ThemeProvider value={appTheme}>
-          <OnboardingGate />
-          <AlarmNotificationBridge />
-          <Stack
-            screenOptions={{
-              headerStyle: { backgroundColor: '#0F172A' },
-              headerShadowVisible: false,
-              headerTintColor: '#FFFFFF',
-              headerTitleStyle: { fontWeight: '700' },
-              contentStyle: { backgroundColor: '#0F172A' },
-            }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-            <Stack.Screen name="set-alarm" />
-            <Stack.Screen name="alarm/[id]" options={{ title: 'Alarm editor' }} />
-            <Stack.Screen name="friends" />
-            <Stack.Screen name="group" />
-            <Stack.Screen name="buddy" />
-            <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="result" />
-            <Stack.Screen name="history" />
-            <Stack.Screen name="badges" />
-            <Stack.Screen name="contracts" />
-            <Stack.Screen name="settings" />
-          </Stack>
-          <StatusBar style="light" />
-        </ThemeProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <GestureHandlerRootView style={styles.rootContainer}>
+      <LanguageProvider>
+        <AuthProvider>
+          <ThemeProvider value={appTheme}>
+            <OnboardingGate />
+            <AlarmNotificationBridge />
+            <Stack
+              screenOptions={{
+                headerStyle: { backgroundColor: '#0F172A' },
+                headerShadowVisible: false,
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: { fontWeight: '700' },
+                contentStyle: { backgroundColor: '#0F172A' },
+              }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+              <Stack.Screen name="set-alarm" />
+              <Stack.Screen name="alarm/[id]" options={{ title: 'Alarm editor' }} />
+              <Stack.Screen name="friends" />
+              <Stack.Screen name="group" />
+              <Stack.Screen name="buddy" />
+              <Stack.Screen name="wake" options={{ headerShown: false, gestureEnabled: false, presentation: 'fullScreenModal' }} />
+              <Stack.Screen name="result" />
+              <Stack.Screen name="history" />
+              <Stack.Screen name="badges" />
+              <Stack.Screen name="contracts" />
+              <Stack.Screen name="settings" />
+            </Stack>
+            <StatusBar style="light" />
+          </ThemeProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  rootContainer: { flex: 1 },
   loadingContainer: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.background,
