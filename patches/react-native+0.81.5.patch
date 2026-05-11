@@ -1,0 +1,43 @@
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/ReactActivityDelegate.java b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/ReactActivityDelegate.java
+index 82d815c..ddf1d61 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/ReactActivityDelegate.java
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/ReactActivityDelegate.java
+@@ -213,19 +213,34 @@ public class ReactActivityDelegate {
+   }
+ 
+   public boolean onKeyDown(int keyCode, KeyEvent event) {
+-    return Objects.requireNonNull(mReactDelegate).onKeyDown(keyCode, event);
++    // Hardware key events can be dispatched before mReactDelegate is fully
++    // initialized (notably on emulators that simulate keystrokes during
++    // boot). Returning false lets Android handle the event normally.
++    if (mReactDelegate == null) {
++      return false;
++    }
++    return mReactDelegate.onKeyDown(keyCode, event);
+   }
+ 
+   public boolean onKeyUp(int keyCode, KeyEvent event) {
+-    return Objects.requireNonNull(mReactDelegate).shouldShowDevMenuOrReload(keyCode, event);
++    if (mReactDelegate == null) {
++      return false;
++    }
++    return mReactDelegate.shouldShowDevMenuOrReload(keyCode, event);
+   }
+ 
+   public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+-    return Objects.requireNonNull(mReactDelegate).onKeyLongPress(keyCode);
++    if (mReactDelegate == null) {
++      return false;
++    }
++    return mReactDelegate.onKeyLongPress(keyCode);
+   }
+ 
+   public boolean onBackPressed() {
+-    return Objects.requireNonNull(mReactDelegate).onBackPressed();
++    if (mReactDelegate == null) {
++      return false;
++    }
++    return mReactDelegate.onBackPressed();
+   }
+ 
+   public boolean onNewIntent(@Nullable Intent intent) {
