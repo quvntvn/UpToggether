@@ -1,4 +1,6 @@
+import { useKeepAwake } from 'expo-keep-awake';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, BackHandler, SafeAreaView, StyleSheet, Text, Vibration, View } from 'react-native';
 
@@ -23,6 +25,10 @@ function getFirstParam(value: string | string[] | undefined) {
 }
 
 export default function WakeScreen() {
+  // Hold a wake lock while the alarm is ringing so the OS does not
+  // dim or sleep the screen mid-wake, even on the lockscreen.
+  useKeepAwake();
+
   const router = useRouter();
   const { t } = useLanguage();
   const {
@@ -122,6 +128,7 @@ export default function WakeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false, title: t('wake.title') }} />
+      <StatusBar hidden translucent />
 
       <View style={styles.content}>
         <View style={styles.header}>

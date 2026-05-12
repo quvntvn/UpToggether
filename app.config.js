@@ -43,6 +43,7 @@ module.exports = {
       'VIBRATE',
       'RECEIVE_BOOT_COMPLETED',
       'POST_NOTIFICATIONS',
+      'DISABLE_KEYGUARD',
     ],
   },
   web: {
@@ -70,6 +71,9 @@ module.exports = {
         sounds: hasCustomAlarmSound ? [customAlarmSoundPath] : [],
       },
     ],
+    // Adds MainActivity flags + DISABLE_KEYGUARD permission so the wake
+    // screen takes over the lockscreen when an alarm fires.
+    './plugins/withWakeScreenAndroid.js',
   ],
   experiments: {
     typedRoutes: true,

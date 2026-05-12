@@ -1,0 +1,31 @@
+diff --git a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
+index 610d303..bf6f24b 100644
+--- a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
++++ b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
+@@ -147,6 +147,26 @@ open class ExpoNotificationBuilder(
+       )
+     )
+ 
++    // UpTogether patch: when the notification body is tagged as an alarm
++    // (data.type === "alarm"), upgrade it with a full-screen intent so the
++    // wake screen launches immediately, even on the lockscreen.
++    val isAlarm = try {
++      content.body?.optString("type") == "alarm"
++    } catch (e: Exception) {
++      false
++    }
++    if (isAlarm) {
++      builder.setFullScreenIntent(
++        createNotificationResponseIntent(
++          context,
++          notification,
++          defaultAction
++        ),
++        true
++      )
++      builder.setCategory(NotificationCompat.CATEGORY_ALARM)
++    }
++
+     if (notificationContent.containsImage()) {
+       val bitmap = notificationContent.getImage(context)
+       bitmap?.let { builder.setLargeIcon(it) }
