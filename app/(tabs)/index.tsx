@@ -6,7 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '@/context/language-context';
 import { buildMorningPreview } from '@/lib/mockRanking';
 import { colors } from '@/lib/theme';
-import { openExactAlarmSystemSettings, shouldPromptForExactAlarmSettings } from '@/services/alarm';
+import {
+  openExactAlarmSystemSettings,
+  openFullScreenIntentSettings,
+  shouldPromptForExactAlarmSettings,
+  shouldPromptForFullScreenIntentSettings,
+} from '@/services/alarm';
 import { getNextUpcomingSchedule } from '@/services/alarmScheduler';
 import { getAlarmSchedules } from '@/storage/alarmScheduleStorage';
 import { getUserProfile } from '@/storage/profileStorage';
@@ -50,6 +55,7 @@ export default function HomeTabScreen() {
   const streakKey = currentStreak === 1 ? 'homeTab.streakValueOne' : 'homeTab.streakValueOther';
   const streakValue = t(streakKey, { count: currentStreak });
   const showExactAlarmBanner = shouldPromptForExactAlarmSettings();
+  const showFullScreenIntentBanner = shouldPromptForFullScreenIntentSettings();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,6 +72,12 @@ export default function HomeTabScreen() {
         {showExactAlarmBanner ? (
           <Pressable style={styles.webBanner} onPress={() => void openExactAlarmSystemSettings()}>
             <Text style={styles.webBannerText}>{t('homeTab.exactAlarmBanner')}</Text>
+          </Pressable>
+        ) : null}
+
+        {showFullScreenIntentBanner ? (
+          <Pressable style={styles.webBanner} onPress={() => void openFullScreenIntentSettings()}>
+            <Text style={styles.webBannerText}>{t('homeTab.fullScreenIntentBanner')}</Text>
           </Pressable>
         ) : null}
 

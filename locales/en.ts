@@ -148,6 +148,7 @@ const en = {
     greetingDefault: 'Your morning dashboard',
     webBanner: 'Notifications only work on mobile',
     exactAlarmBanner: 'Tap to enable exact alarms in system settings for reliable wake-ups.',
+    fullScreenIntentBanner: 'Tap to allow UpTogether to take over the screen when an alarm fires.',
     nextAlarm: 'NEXT ALARM',
     noAlarm: 'No alarm',
     noAlarmBody: 'Create your first schedule to stay consistent.',

@@ -148,6 +148,7 @@ const fr = {
     greetingDefault: 'Ton tableau de bord du matin',
     webBanner: 'Les notifications fonctionnent uniquement sur mobile',
     exactAlarmBanner: 'Active les alarmes exactes dans les paramètres système pour fiabiliser tes réveils.',
+    fullScreenIntentBanner: 'Autorise UpTogether à prendre le contrôle de l’écran quand l’alarme sonne.',
     nextAlarm: 'PROCHAIN RÉVEIL',
     noAlarm: 'Aucune alarme',
     noAlarmBody: 'Crée ta première programmation pour rester régulier.',

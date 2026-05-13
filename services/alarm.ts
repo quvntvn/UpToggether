@@ -187,6 +187,46 @@ export function shouldPromptForExactAlarmSettings() {
   return Number(Platform.Version) >= 31;
 }
 
+/**
+ * Android 14+ (API 34) requires the user (or an alarm-clock intent-filter)
+ * to grant USE_FULL_SCREEN_INTENT before the system honours
+ * setFullScreenIntent(). Our config plugin declares MainActivity with an
+ * ACTION_SET_ALARM filter so the OS auto-grants the permission, but if an
+ * OEM has tightened the rule we want to deep-link the user to the per-app
+ * settings page where they can enable it manually.
+ */
+export async function openFullScreenIntentSettings() {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  try {
+    await Linking.sendIntent('android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT');
+    return true;
+  } catch {
+    try {
+      await Linking.openSettings();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/**
+ * On Android 14+ the system can silently downgrade full-screen intents to
+ * a regular notification banner if it does not consider the app an alarm
+ * clock. We return true on API 34+ so the home screen can show a banner
+ * inviting the user to verify the permission in system settings.
+ */
+export function shouldPromptForFullScreenIntentSettings() {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  return Number(Platform.Version) >= 34;
+}
+
 export async function cancelScheduledAlarm(notificationId?: string | null) {
   if (!notificationId) {
     return;
